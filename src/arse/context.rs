@@ -4,19 +4,17 @@ use crate::prelude::*;
 
 pub struct Context {
 	signal_queue : SignalQueue,
-	assets : Assets,
 	scene_manager : SceneManager,
 }
 impl Context {
-	pub fn new(assets : Assets, scenes : Vec<Box<dyn Scene>>) -> Self {
+	pub fn new(scenes : Vec<Box<dyn Scene>>) -> Self {
 		Context {
 			signal_queue: SignalQueue::new(),
 			scene_manager: SceneManager::new(scenes),
-			assets,
 		}
 	}
-	pub fn init(&mut self) {
-		self.scene_manager.init(&self.assets);
+	pub fn init(&mut self, assets : Assets) {
+		self.scene_manager.init(&assets);
 	}
 
 	pub fn update(&mut self) {

@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crate::config::*;
+use crate::{config::*, prelude::load_font};
 
 #[rustfmt::skip]
 pub fn draw_checkerboard(x: f32, y: f32, s: f32, c1: Color, c2: Color) {
@@ -13,6 +13,28 @@ pub fn draw_checkerboard(x: f32, y: f32, s: f32, c1: Color, c2: Color) {
 		while py < H {
 			let i = x_ + y_;
 			draw_rectangle(px, py, s, s, if (i % 2) == 0 { c1 } else { c2 });
+			py += s;
+			y_ += 1;
+		}
+		px += s;
+		x_ += 1;
+	}
+}
+#[rustfmt::skip]
+pub fn draw_checkerboard_quicker(x: f32, y: f32, s: f32, c1: Color, c2: Color) {
+	draw_rectangle(0., 0., W, H, c1);
+	let x = if x < 0. { -(-x % (2. * s)) } else { x % (2. * s) } - (3. * s);
+	let y = if y < 0. { -(-y % (2. * s)) } else { y % (2. * s) } - (3. * s);
+	let mut x_ = 0;
+	let mut px = x;
+	while px < W {
+		let mut py = y;
+		let mut y_ = 0;
+		while py < H {
+			let i = x_ + y_;
+			if (i % 2) != 0 {
+				draw_rectangle(px, py, s, s,  c2);
+			}
 			py += s;
 			y_ += 1;
 		}
@@ -38,14 +60,21 @@ pub fn count_and_render_fps() {
 	}
 }
 
-pub fn quick_text(text : &str, pos : Vec2) {
+pub fn quick_text(text : &str, pos : Vec2, color : Color) {
+	static mut FONT: Option<Font> = None;
+	unsafe {
+		if FONT.is_none() {
+			FONT = Some(load_font());
+		}
+	}
 	draw_text_ex(
 		text,
 		pos.x, pos.y,
 		TextParams{
 			font_size: DEFAULT_FONT_SIZE as u16,
 			font_scale: 1.,
-			color: WHITE,
+			color,
+			font: unsafe { FONT.expect("quick_text font is none") },
 			..TextParams::default()
 		});
 }

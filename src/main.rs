@@ -53,13 +53,13 @@ impl Scene for One {
 	}
 	fn render(&mut self, _q : &mut SignalQueue) {
 		let t = get_time() as f32;
-		draw_checkerboard(-t * 20., 0., 8., ORANGE, YELLOW);
+		draw_checkerboard_quicker(-t * 20., 0., 8., ORANGE, YELLOW);
 		let (w, h) = (10., 10.);
 		let (x, y) = (self.pos.x - w/2., self.pos.y - h/2.);
 		draw_rectangle(x, y, w, h, PURPLE);
 
 		self.objs.render();
-		quick_text(&format!("object count: {}", self.objs.objects.len()), self.pos)
+		quick_text(&format!("object count: {}", self.objs.objects.len()), self.pos, WHITE)
 	}
 	fn update(&mut self, q : &mut SignalQueue) {
 		let d = get_frame_time();
@@ -96,15 +96,15 @@ impl Scene for Two {
 async fn main() {
 	let assets = Assets::load().await;
 	let mut ctx = Context::new(
-		assets,
 		vec![Box::new(One::new()), Box::new(Two{})]
 	);
-	ctx.init();
+	ctx.init(assets);
 
 	let rt = render_target(W as u32, H as u32);
 	rt.texture.set_filter(FilterMode::Nearest);
 	let mut camera = Camera2D::from_display_rect(Rect { x: 0., y: 0., w: W, h: H });
 	camera.render_target = Some(rt);
+
 	loop {
 		ctx.update();
 
