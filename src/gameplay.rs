@@ -55,6 +55,27 @@ impl Scene for Gameplay {
 		else if is_mouse_button_pressed(MouseButton::Right) {
 			self.food.borrow_mut().put_food(Food::new(&mp));
 		}
+		if is_key_pressed(KeyCode::Key1) {
+			for _ in 0..20 {
+				self.objs.create(Gobj::new_ant(
+						self.markers.clone(),
+						self.food.clone(),
+						&mouse_pos_scaled_rd(&self.rd))
+					);
+			}
+		}
+		if is_key_pressed(KeyCode::Key2) {
+			for _ in 0..20 {
+				self.food.borrow_mut().put_food(Food::new(
+						&random_ring_point(
+							&mouse_pos_scaled_rd(&self.rd),
+							ANT_RAD,
+							ANT_RAD*3.
+							)
+						)
+					);
+			}
+		}
     }
 
     fn render(&mut self, _q : &mut SignalQueue) {
@@ -69,5 +90,7 @@ impl Scene for Gameplay {
 
 		self.markers.borrow().render(&self.rd);
 		self.food.borrow().render(&self.rd);
+
+		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
     }
 }

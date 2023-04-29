@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 pub struct Context {
 	signal_queue : SignalQueue,
-	scene_manager : SceneManager,
+	pub scene_manager : SceneManager,
 }
 impl Context {
 	pub fn new(scenes : Vec<Box<dyn Scene>>) -> Self {

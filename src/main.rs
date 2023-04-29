@@ -34,6 +34,7 @@ async fn main() {
 				ctx.update();
 			}
 		}
+
 		ctx.update();
 
 		// TODO remove; debug

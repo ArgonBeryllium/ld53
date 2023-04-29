@@ -1,4 +1,5 @@
 ## Necessary
+- fix clumping
 - home
 	- [ ] static access
 	- [ ] depositing pellets
