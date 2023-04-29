@@ -11,6 +11,8 @@ mod gameplay;
 use gameplay::*;
 mod gobj;
 mod ants;
+mod markers;
+mod food;
 
 #[macroquad::main(window_conf())]
 async fn main() {

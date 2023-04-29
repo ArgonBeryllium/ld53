@@ -1,4 +1,10 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use macroquad::prelude::*;
+use crate::food::Food;
+use crate::food::FoodWorld;
+use crate::markers::MarkerWorld;
 use crate::prelude::*;
 use crate::gobj::*;
 
@@ -6,6 +12,8 @@ pub struct Gameplay {
 	pub objs : ObjectSet<Gobj>,
 	pub player_id : GameObjectID,
 	pub rd : RenderData,
+	pub markers : Rc<RefCell<MarkerWorld>>,
+	pub food : Rc<RefCell<FoodWorld>>,
 }
 impl Gameplay {
 	pub fn new() -> Self {
@@ -13,6 +21,8 @@ impl Gameplay {
 			objs: ObjectSet::new(),
 			player_id: 0,
 			rd: RenderData::new(),
+			markers: Rc::new(RefCell::new(MarkerWorld::new(55.))),
+			food: Rc::new(RefCell::new(FoodWorld::new(42.))),
 		}
 	}
 	pub fn player_pos(&self) -> Vec2 {
@@ -30,6 +40,9 @@ impl Scene for Gameplay {
     fn update(&mut self, _q : &mut SignalQueue) {
 		let d = get_frame_time();
         self.objs.update();
+		self.markers.borrow_mut().update(d);
+		self.food.borrow_mut().update(d);
+
 		self.rd.camera_pos = lerp(
 			self.rd.camera_pos,
 			self.player_pos() + get_ivn()*10.,
@@ -37,10 +50,10 @@ impl Scene for Gameplay {
 
 		let mp = mouse_pos_scaled_rd(&self.rd);
 		if is_mouse_button_pressed(MouseButton::Left) {
-			self.objs.create(Gobj::new_ant(&mp));
+			self.objs.create(Gobj::new_ant(self.markers.clone(), &mp));
 		}
 		else if is_mouse_button_down(MouseButton::Right) {
-			self.objs.create(Gobj::Pellet(mp));
+			self.food.borrow_mut().put_food(Food::new(&mp));
 		}
     }
 
@@ -48,5 +61,8 @@ impl Scene for Gameplay {
 		let co = self.rd.camera_offset();
 		draw_checkerboard_quicker(-co.x, -co.y, 15., DARKGRAY, GRAY);
         self.objs.render(&self.rd);
+
+		self.markers.borrow().render(&self.rd);
+		self.food.borrow().render(&self.rd);
     }
 }
