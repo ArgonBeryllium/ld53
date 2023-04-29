@@ -18,6 +18,7 @@ impl RenderData {
 }
 
 pub trait GameObject {
+	fn init(&mut self) {}
 	fn update(&mut self) -> bool { true }
 	fn render(&self, rd : &RenderData);
 }
@@ -73,6 +74,7 @@ impl<T : GameObject + PartialEq> ObjectSet<T> {
 	}
 	pub fn create(&mut self, obj : T) -> GameObjectID {
 		self.objects.insert(self.next_id, obj);
+		self.objects.get_mut(&self.next_id).unwrap().init();
 		self.next_id += 1;
 		self.next_id-1
 	}

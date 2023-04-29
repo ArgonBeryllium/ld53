@@ -7,7 +7,7 @@ pub enum Marker {
 }
 #[derive(PartialEq, Debug)]
 pub enum AntState {
-	Wander,
+	Wander(Vec2),
 	Follow(Option<Marker>),
 	GoHome(Option<Marker>),
 }
