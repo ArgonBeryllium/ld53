@@ -19,12 +19,13 @@ const ANT_WANDER_TURN_SPEED : f32 = 0.8;
 pub const ANT_MARKER_DIST : f32 = ANT_SPEED;
 const ANT_FOOD_DETECTION_RANGE : f32 = ANT_RAD * 11.;
 const ANT_FOOD_PICKUP_RANGE : f32 = ANT_RAD;
-const ANT_HOME_DEPOSIT_RANGE : f32 = ANT_RAD*3.;
+pub const ANT_HOME_DEPOSIT_RANGE : f32 = ANT_RAD*7.;
 
 pub const HOME_MARKER_LIFE : f32 = 25.0;
-pub const FOOD_MARKER_LIFE : f32 = 35.0;
+pub const FOOD_MARKER_LIFE : f32 = 15.0;
 
 pub const HOME_POS : Vec2 = Vec2::ZERO;
+pub const HARD_BOUNDS : Vec2 = vec2(ANT_RAD*100., ANT_RAD*50.);
 
 #[derive(Debug)]
 pub enum Gobj {
@@ -47,6 +48,10 @@ impl GameObject for Gobj {
 				true
 			},
 			Ant(marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
+				if pos.x >  HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
+				if pos.x < -HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
+				if pos.y >  HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
+				if pos.y < -HARD_BOUNDS.y { pos.y =  HARD_BOUNDS.y; }
 				let heading = *target - *pos;
 				let heading =
 					if heading.length() != 0.0 { heading.normalize() }

@@ -28,7 +28,7 @@ impl Gameplay {
 	pub fn player_pos(&self) -> Vec2 {
 		match self.objs.get_obj(self.player_id) {
 			Gobj::Player(pos) => *pos,
-			_ => panic!("player_id ({}) nor pointing to a Player!", self.player_id)
+			_ => panic!("player_id ({}) not pointing to a Player!", self.player_id)
 		}
 	}
 }
@@ -59,7 +59,12 @@ impl Scene for Gameplay {
 
     fn render(&mut self, _q : &mut SignalQueue) {
 		let co = self.rd.camera_offset();
+
 		draw_checkerboard_quicker(-co.x, -co.y, 15., DARKGRAY, GRAY);
+		draw_circle(HOME_POS.x - co.x, HOME_POS.y - co.y, ANT_HOME_DEPOSIT_RANGE, DARKBLUE);
+		draw_rectangle(-HARD_BOUNDS.x - co.x, -HARD_BOUNDS.y - co.y,
+			HARD_BOUNDS.x*2., HARD_BOUNDS.y*2., Color::from_rgba(0,55,55,55));
+
         self.objs.render(&self.rd);
 
 		self.markers.borrow().render(&self.rd);
