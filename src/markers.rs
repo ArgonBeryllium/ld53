@@ -72,8 +72,6 @@ impl MarkerWorld {
 				}
 				for m in &self.markers[&(x, y)] {
 					if !condition(m) { continue; }
-					let d = m.pos().distance(p);
-					if d < ANT_MARKER_DIST { continue; }
 					out.push(m.clone());
 				}
 			}

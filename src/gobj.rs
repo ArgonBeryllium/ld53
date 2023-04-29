@@ -30,11 +30,17 @@ pub const HARD_BOUNDS : Vec2 = vec2(ANT_RAD*100., ANT_RAD*50.);
 #[derive(Debug)]
 pub enum Gobj {
 	Player(Vec2),
-	Ant(bool, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
+	Ant(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
+	Scout(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2),
 }
 impl Gobj {
 	pub fn new_ant(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Ant(rand::gen_range(0., 1.) < 0.1, mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
+		//if rand::gen_range(0., 1.) < 0.1 {
+		//	Gobj::Scout(mw, fw, *pos, *pos, 0., *pos)
+		//}
+		//else {
+			Gobj::Ant(mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
+		//}
 	}
 }
 impl GameObject for Gobj {
@@ -47,18 +53,17 @@ impl GameObject for Gobj {
 				*pos += iv*d*PLAYER_SPEED;
 				true
 			},
-			Ant(is_scout, marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
-				if pos.x >  HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
-				if pos.x < -HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
-				if pos.y >  HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
-				if pos.y < -HARD_BOUNDS.y { pos.y =  HARD_BOUNDS.y; }
+			Ant(marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
+				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
+				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
+				if pos.y >  HARD_BOUNDS.y { pos.y = HARD_BOUNDS.y; }
+				if pos.y < -HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
 				let heading = *target - *pos;
 				let heading =
 					if heading.length() != 0.0 { heading.normalize() }
 					else { heading };
 
 				use AntState::*;
-
 				let wander = |time_left_until_next_angle : &mut f32, a : &mut f32, avel : &mut f32, target : &mut Vec2| {
 						let rtarget = *target - *pos;
 						let angle_target = rtarget.y.atan2(rtarget.x);
@@ -75,145 +80,117 @@ impl GameObject for Gobj {
 					};
 
 				let mut next_marker = None;
-				if *is_scout {
-					*state = match state {
-						Wander(time_left_until_next_angle, a, avel) => {
-							next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
-							wander(time_left_until_next_angle, a, avel, target);
+				let closest_marker_food = marker_world.borrow()
+					.local_markers(
+						pos,
+						&heading,
+						&|m| match *m { Marker::Food(..) => true, _ => false })
+					.iter()
+					.map(|m| m.clone())
+					.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
+					.min_by(|a, b| match a.pos().distance(*pos) < b.pos().distance(*pos) {
+							true => std::cmp::Ordering::Less,
+							false => std::cmp::Ordering::Greater,
+						}
+					);
+				let closest_marker_home = marker_world.borrow()
+					.local_markers(
+						pos,
+						&heading,
+						&|m| match *m { Marker::Home(..) => true, _ => false })
+					.iter()
+					.map(|m| m.clone())
+					.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
+					.min_by(|a, b| match a.pos().distance(HOME_POS) < b.pos().distance(HOME_POS) {
+							true => std::cmp::Ordering::Less,
+							false => std::cmp::Ordering::Greater,
+						}
+					);
+
+				let closest_food_id = food_world.borrow().find_food(pos, &heading);
+				let get_closest_food_pos = ||
+					food_world
+					.borrow()
+					.get_food(closest_food_id.unwrap())
+					.expect("Closest food no longer exists")
+					.pos;
+
+				let mut next_target = target.clone();
+				*state = match state {
+					Wander(time_left_until_next_angle, a, avel) => {
+						next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
+						wander(time_left_until_next_angle, a, avel, target);
+
+						if closest_food_id.is_some() &&
+							get_closest_food_pos().distance(*pos)
+								< ANT_FOOD_DETECTION_RANGE
+						{
+							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
+							GetFood(get_closest_food_pos())
+						} else if closest_marker_food.is_some() {
+							Follow(closest_marker_food)
+						}
+						else {
 							state.clone()
-						},
-						_ => Wander(0., 0., 0.)
-					}
-				}
-				else {
-					let closest_marker_food = marker_world.borrow()
-						.local_markers(
-							pos,
-							&heading,
-							&|m| match *m { Marker::Food(..) => true, _ => false })
-						.iter()
-						.map(|m| m.clone())
-						.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
-						.min_by(|a, b| match a.pos().distance(*pos) < b.pos().distance(*pos) {
-								true => std::cmp::Ordering::Less,
-								false => std::cmp::Ordering::Greater,
-							}
-						);
-					let closest_marker_home = marker_world.borrow()
-						.local_markers(
-							pos,
-							&heading,
-							&|m| match *m { Marker::Home(..) => true, _ => false })
-						.iter()
-						.map(|m| m.clone())
-						.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
-						.min_by(|a, b| match a.pos().distance(HOME_POS) < b.pos().distance(HOME_POS) {
-								true => std::cmp::Ordering::Less,
-								false => std::cmp::Ordering::Greater,
-							}
-						);
-
-					let closest_food_id = food_world.borrow().find_food(pos, &heading);
-					let get_closest_food_pos = ||
-						food_world
-						.borrow()
-						.get_food(closest_food_id.unwrap())
-						.expect("Closest food no longer exists")
-						.pos;
-
-					let mut next_target = target.clone();
-					*state = match state {
-						Wander(time_left_until_next_angle, a, avel) => {
-							next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
-							wander(time_left_until_next_angle, a, avel, target);
-
-							if closest_food_id.is_some() &&
-								get_closest_food_pos().distance(*pos)
-									< ANT_FOOD_DETECTION_RANGE
-							{
-								next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
-								GetFood(get_closest_food_pos())
-							} else if closest_marker_food.is_some() {
-								Follow(closest_marker_food)
-							}
-							else {
+						}
+					},
+					GetFood(food_pos) => {
+						next_target = *food_pos;
+						if closest_food_id.is_none() {
+							Wander(0., 0., 0.)
+						} else {
+							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
+							if food_pos.distance(*pos) < ANT_FOOD_PICKUP_RANGE {
+								let f = food_world
+									.borrow_mut()
+									.take_food(closest_food_id.unwrap());
+								match f {
+									Some(f) => GoHome(f, closest_marker_home, 0.,0.,0.),
+									None => Wander(0.,0.,0.)
+								}
+							} else {
 								state.clone()
 							}
-						},
-						GetFood(food_pos) => {
-							next_target = *food_pos;
-							if closest_food_id.is_none() {
-								Wander(0., 0., 0.)
-							} else {
-								next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
-								if food_pos.distance(*pos) < ANT_FOOD_PICKUP_RANGE {
-									let f = food_world
-										.borrow_mut()
-										.take_food(closest_food_id.unwrap());
-									match f {
-										Some(f) => GoHome(f, closest_marker_home, 0.,0.,0.),
-										None => Wander(0.,0.,0.)
-									}
-								} else {
-									state.clone()
-								}
+						}
+					},
+					Follow(m) => {
+						if closest_food_id.is_some() &&
+							get_closest_food_pos().distance(*pos)
+								< ANT_FOOD_DETECTION_RANGE
+						{
+							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
+							GetFood(get_closest_food_pos())
+						} else {
+							next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
+							match m {
+								Some(Marker::Food(p, ..)) => {
+									next_target = *p;
+									Follow(closest_marker_food)
+								},
+								_ => Wander(0., 0., 0.)
 							}
-						},
-						Follow(m) => {
-							if closest_food_id.is_some() &&
-								get_closest_food_pos().distance(*pos)
-									< ANT_FOOD_DETECTION_RANGE
-							{
-								next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
-								GetFood(get_closest_food_pos())
-							} else {
-								next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
-								match m {
-									Some(Marker::Food(p, ..)) => {
-										next_target = *p;
-										Follow(closest_marker_food)
-									},
-									_ => Wander(0., 0., 0.)
-								}
-							}
-						},
-						GoHome(food, m, time_left_until_next_angle, a, avel) => {
-							if pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
-								// TODO deposit
-								Wander(0., 0., 0.)
-							}
-							else {
-								next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
-								let nm = if closest_marker_home.is_some()
+						}
+					},
+					GoHome(food, m, time_left_until_next_angle, a, avel) => {
+						if pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
+							// TODO deposit
+							Wander(0., 0., 0.)
+						}
+						else {
+							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
+							let nm =
+								if closest_marker_home.is_some()
 									{ closest_marker_home }
-									else { closest_marker_food };
-								if m.is_some() { next_target = *m.clone().unwrap().pos(); }
-								GoHome(food.clone(), nm, *time_left_until_next_angle, *a, *avel)
-								/*
-								let nm = if closest_marker_home.is_some()
-									{ closest_marker_home }
-									else { closest_marker_food };
-								match m {
-									Some(m) => {
-										next_target = *m.pos();
-										GoHome(food.clone(), nm, *time_left_until_next_angle, *a, *avel)
-									},
-									None => {
-										next_marker = None;
-										wander(time_left_until_next_angle, a, avel, target);
-										next_target = HOME_POS;
-										GoHome(food.clone(), nm, *time_left_until_next_angle, *a, *avel)
-									}
-								}
-								*/
-							}
-						},
-					};
-					*target_change_cooldown -= d;
-					if *target_change_cooldown < 0. {
-						*target = next_target;
-						*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
-					}
+								else { closest_marker_food };
+							if m.is_some() { next_target = *m.clone().unwrap().pos(); }
+							GoHome(food.clone(), nm, *time_left_until_next_angle, *a, *avel)
+						}
+					},
+				};
+				*target_change_cooldown -= d;
+				if *target_change_cooldown < 0. {
+					*target = next_target;
+					*target_change_cooldown = 0.1;//ANT_MARKER_DIST/ANT_SPEED;
 				}
 
 				if pos != target {
@@ -225,6 +202,25 @@ impl GameObject for Gobj {
 				}
 				true
 			},
+			Scout(marker_world, _food_world, pos, target, target_change_cooldown, last_marker_pos) => {
+				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
+				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
+				if pos.y >  HARD_BOUNDS.y { pos.y = HARD_BOUNDS.y; }
+				if pos.y < -HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
+				*target_change_cooldown -= d;
+				if *target_change_cooldown < 0. {
+					*target = random_ring_point(pos, ANT_MARKER_DIST*3., ANT_MARKER_DIST*10.);
+					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
+				}
+				if pos != target {
+					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
+				}
+				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST {
+					marker_world.borrow_mut().create_marker(Marker::Home(*pos, HOME_MARKER_LIFE));
+					*last_marker_pos = *pos;
+				}
+				true
+			}
 		}
 	}
 	fn render(&self, rd : &RenderData) {
@@ -232,7 +228,27 @@ impl GameObject for Gobj {
 		let co = rd.camera_offset();
 		match self {
 			Player(pos) => draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, RED),
-			Ant(scout, _mw, _fw, pos, target, tcc, _lmp, state) => {
+			Ant(mw, _fw, pos, target, tcc, _lmp, state) => {
+				let heading = *target - *pos;
+				let heading =
+					if heading.length() != 0.0 { heading.normalize() }
+					else { heading };
+				let home_markers : Vec<_> = mw.borrow()
+					.local_markers(
+						pos,
+						&heading,
+						&|m| match *m { Marker::Home(..) => true, _ => false })
+					.iter()
+					.map(|m| m.clone()).collect();
+				let hmc = home_markers.clone();
+				let closest = hmc
+					.iter()
+					.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
+					.min_by(|a, b| match a.pos().distance(HOME_POS) < b.pos().distance(HOME_POS) {
+							true => std::cmp::Ordering::Less,
+							false => std::cmp::Ordering::Greater,
+						}
+					);
 				let pos = *pos - co;
 				let target = *target - co;
 				let col = match state {
@@ -244,8 +260,18 @@ impl GameObject for Gobj {
 
 				draw_circle(pos.x, pos.y, ANT_RAD, col);
 				draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
-				if *scout { draw_circle(pos.x, pos.y, ANT_RAD*0.5, BLACK); }
-				//quick_text(&format!("{:?}", state), pos, WHITE);
+				for m in home_markers {
+					draw_line(pos.x, pos.y, m.pos().x - co.x, m.pos().y - co.y, 1., BLACK);
+				}
+				if closest.is_some() {
+					draw_line(pos.x, pos.y, closest.unwrap().pos().x-co.x, closest.unwrap().pos().y-co.y, 2., YELLOW);
+				}
+			},
+			Scout(_, _, pos, target, _, _) => {
+				let pos = *pos - co;
+				let target = *target - co;
+				draw_circle(pos.x, pos.y, ANT_RAD, LIGHTGRAY);
+				draw_line(pos.x, pos.y, target.x, target.y, 1.0, PURPLE);
 			},
 		}
 	}
