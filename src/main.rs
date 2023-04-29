@@ -1,4 +1,4 @@
-use macroquad::{prelude::*, audio::{Sound, play_sound_once}};
+use macroquad::prelude::*;
 
 mod config;
 mod resources;
@@ -8,87 +8,70 @@ mod prelude;
 mod game_objects;
 use prelude::*;
 
-enum TestObjs {
-	Squinkly(Vec2),
-	Particle(Vec2, f32)
+const PLAYER_SPEED : f32 = 15.0;
+#[derive(PartialEq, Debug)]
+enum Gobj {
+	Player(Vec2, f32)
 }
-impl GameObject for TestObjs {
+impl GameObject for Gobj {
 	fn update(&mut self) -> bool {
-		use TestObjs::*;
 		let d = get_frame_time();
+		use Gobj::*;
 		match self {
-			Squinkly(_pos) => true,
-			Particle(_pos, life) => {
-				*life -= d;
-				*life > 0.
+			Player(pos, _r) => {
+				let iv = get_ivn();
+				*pos += iv*d*PLAYER_SPEED;
+				true
 			}
 		}
 	}
-	fn render(&self) {
-		use TestObjs::*;
+	fn render(&self, rd : &RenderData) {
+		use Gobj::*;
+		let co = rd.camera_offset();
 		match self {
-			Squinkly(pos) => draw_rectangle(pos.x, pos.y, 10., 10., BLUE),
-			Particle(pos, life) => draw_rectangle(pos.x, pos.y, *life*5., *life*5., GREEN),
+			Player(pos, r) => draw_circle(pos.x - co.x, pos.y - co.y, *r, RED),
 		}
 	}
 }
 
-struct One {
-	pos : Vec2,
-	objs : ObjectSet<TestObjs>,
-	sound : Option<Sound>,
+struct Gameplay {
+	objs : ObjectSet<Gobj>,
+	player_id : GameObjectID,
+	rd : RenderData,
 }
-impl One {
+impl Gameplay {
 	fn new() -> Self {
-		One {
-			pos: Vec2::ZERO,
+		Gameplay {
 			objs: ObjectSet::new(),
-			sound : None,
+			player_id: 0,
+			rd: RenderData::new(),
+		}
+	}
+	fn player_pos(&self) -> Vec2 {
+		match self.objs.get_obj(self.player_id) {
+			Gobj::Player(pos, _) => *pos,
+			_ => panic!("player_id ({}) nor pointing to a Player!", self.player_id)
 		}
 	}
 }
-impl Scene for One {
-	fn init(&mut self, a : &Assets) {
-		self.sound = Some(a.sound);
+impl Scene for Gameplay {
+	fn init(&mut self, _a : &Assets) {
+		use Gobj::*;
+		self.player_id = self.objs.create(Player(vec2(0., 0.), 5.));
 	}
-	fn render(&mut self, _q : &mut SignalQueue) {
-		let t = get_time() as f32;
-		draw_checkerboard_quicker(-t * 20., 0., 8., ORANGE, YELLOW);
-		let (w, h) = (10., 10.);
-		let (x, y) = (self.pos.x - w/2., self.pos.y - h/2.);
-		draw_rectangle(x, y, w, h, PURPLE);
-
-		self.objs.render();
-		quick_text(&format!("object count: {}", self.objs.objects.len()), self.pos, WHITE)
-	}
-	fn update(&mut self, q : &mut SignalQueue) {
+    fn update(&mut self, _q : &mut SignalQueue) {
 		let d = get_frame_time();
-		self.pos = lerp(self.pos, mouse_pos_scaled(), d*5.);
-		self.objs.update();
-		
-		if is_mouse_button_pressed(MouseButton::Left) {
-			self.objs.objects.push(TestObjs::Particle(mouse_pos_scaled(), 1.))
-		}
-		if is_mouse_button_pressed(MouseButton::Right) {
-			self.objs.objects.push(TestObjs::Squinkly(mouse_pos_scaled()));
-			play_sound_once(self.sound.unwrap());
-		}
-		if is_key_pressed(KeyCode::Space) {
-			q.send(Signal::SetScene(1));
-		}
-	}
-}
-struct Two;
-impl Scene for Two {
-    fn update(&mut self, q : &mut SignalQueue) {
-		if is_key_pressed(KeyCode::Space) {
-			q.send(Signal::SetScene(0));
-		}
+        self.objs.update();
+		self.rd.camera_pos = lerp(
+			self.rd.camera_pos,
+			self.player_pos() + get_ivn()*10.,
+			d*6.);
     }
 
     fn render(&mut self, _q : &mut SignalQueue) {
-		let t = get_time() as f32;
-		draw_checkerboard(t*20., t*18., 30., GRAY, DARKGRAY);
+		let co = self.rd.camera_offset();
+		draw_checkerboard_quicker(-co.x, -co.y, 15., DARKGRAY, GRAY);
+        self.objs.render(&self.rd);
     }
 }
 
@@ -96,7 +79,7 @@ impl Scene for Two {
 async fn main() {
 	let assets = Assets::load().await;
 	let mut ctx = Context::new(
-		vec![Box::new(One::new()), Box::new(Two{})]
+		vec![Box::new(Gameplay::new())]
 	);
 	ctx.init(assets);
 
