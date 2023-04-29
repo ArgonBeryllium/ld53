@@ -28,19 +28,30 @@ async fn main() {
 	camera.render_target = Some(rt);
 
 	loop {
+		// TODO remove; debug
+		if is_key_down(KeyCode::LeftAlt) {
+			for _ in 0..100 {
+				ctx.update();
+			}
+		}
 		ctx.update();
 
-		set_camera(&camera);
+		// TODO remove; debug
+		if !is_key_down(KeyCode::LeftControl) {
+			set_camera(&camera);
+		}
 		clear_background(DARKGRAY);
 		ctx.render();
 
-		set_default_camera();
-		draw_texture_ex(rt.texture, 0.0, 0.0, WHITE,
-			DrawTextureParams {
-				dest_size: Some(vec2(screen_width(), screen_height())),
-				flip_y: true,
-				..DrawTextureParams::default()
-			});
+		if !is_key_down(KeyCode::LeftControl) {
+			set_default_camera();
+			draw_texture_ex(rt.texture, 0.0, 0.0, WHITE,
+				DrawTextureParams {
+					dest_size: Some(vec2(screen_width(), screen_height())),
+					flip_y: true,
+					..DrawTextureParams::default()
+				});
+		}
 
 		count_and_render_fps();
 		

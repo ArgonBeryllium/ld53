@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use macroquad::{prelude::{Vec2, RED, vec2, WHITE}, shapes::{draw_rectangle_lines, draw_circle_lines}};
 
-use crate::{game_objects::RenderData, gobj::{FOOD_MARKER_LIFE, HOME_MARKER_LIFE}};
+use crate::{game_objects::RenderData, gobj::{FOOD_MARKER_LIFE, HOME_MARKER_LIFE, ANT_MARKER_DIST}};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Marker {
@@ -9,7 +9,7 @@ pub enum Marker {
 	Food(Vec2, f32)
 }
 impl Marker {
-	fn pos(&self) -> &Vec2 {
+	pub fn pos(&self) -> &Vec2 {
 		use Marker::*;
 		match self {
 			Home(p, _) => p,
@@ -57,11 +57,14 @@ impl MarkerWorld {
 			.unwrap()
 			.push(m);
 	}
-	pub fn detect_marker(&self, pos : &Vec2, heading : &Vec2, condition : &dyn Fn(&Marker) -> bool) -> Option<Marker> {
+	pub fn local_markers(&self,
+		pos : &Vec2,
+		heading : &Vec2,
+		condition : &dyn Fn(&Marker) -> bool) -> Vec<Marker> {
 		let p = *pos+*heading;
 		let k = self.pos_to_key(&p);
 
-		let (mut winner, mut md) = (None, f32::MAX);
+		let mut out = Vec::new();
 		for x in (k.0-1)..(k.0+1) {
 			for y in (k.1-1)..(k.1+1) {
 				if !self.markers.contains_key(&(x, y)) {
@@ -70,14 +73,12 @@ impl MarkerWorld {
 				for m in &self.markers[&(x, y)] {
 					if !condition(m) { continue; }
 					let d = m.pos().distance(p);
-					if d < md {
-						winner = Some(m);
-						md = d;
-					}
+					if d < ANT_MARKER_DIST { continue; }
+					out.push(m.clone());
 				}
 			}
 		}
-		winner.cloned()
+		out
 	}
 
 	pub fn update(&mut self, d : f32) {

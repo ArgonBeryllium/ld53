@@ -1,9 +1,4 @@
 ## Necessary
-- markers
-	- [x] static access
-	- [x] dropping
-	- [x] dissipation
-	- [ ] following
 - home
 	- [ ] static access
 	- [ ] depositing pellets
@@ -12,6 +7,8 @@
 	- [ ] eating ants
 		- [ ] lose state, restart
 - map
+	- [ ] bounds
+	- [ ] teleporting offscreen stragglers
 	- [ ] geometry w/collisions
 	- [ ] mini view
 	- [ ] texture
@@ -33,3 +30,8 @@
 	- [ ] ambient droning
 
 ## DONE
+- markers
+	- [x] static access
+	- [x] dropping
+	- [x] dissipation
+	- [x] following

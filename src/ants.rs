@@ -6,5 +6,5 @@ pub enum AntState {
 	Wander(f32, f32, f32),
 	GetFood(Vec2),
 	Follow(Option<Marker>),
-	GoHome(Food, Option<Marker>),
+	GoHome(Food, Option<Marker>, f32, f32, f32),
 }

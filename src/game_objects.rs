@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use macroquad::prelude::{Vec2, vec2};
-use crate::config::{W, H};
+use macroquad::prelude::{Vec2, vec2, is_key_down, KeyCode};
+use crate::{config::{W, H}, prelude::{REAL_H, REAL_W}};
 
 pub struct RenderData {
 	pub camera_pos : Vec2,
@@ -13,6 +13,10 @@ impl RenderData {
 		}
 	}
 	pub fn camera_offset(&self) -> Vec2 {
+		// TODO remove; debug
+		if is_key_down(KeyCode::LeftControl) {
+			return self.camera_pos - vec2(REAL_W as f32 /2., REAL_H as f32 /2.)
+		}
 		self.camera_pos - vec2(W/2., H/2.)
 	}
 }

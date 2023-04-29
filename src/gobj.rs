@@ -16,21 +16,24 @@ const ANT_SPEED : f32 = 15.0;
 const ANT_RAD : f32 = PLAYER_RAD * 0.8;
 const ANT_TURN_SPEED : f32 = 8.0;
 const ANT_WANDER_TURN_SPEED : f32 = 0.8;
-const ANT_MARKER_DIST : f32 = ANT_SPEED;
-const ANT_FOOD_DETECTION_RANGE : f32 = ANT_SPEED * 3.;
-const ANT_FOOD_PICKUP_RANGE : f32 = ANT_RAD * 5.;
+pub const ANT_MARKER_DIST : f32 = ANT_SPEED;
+const ANT_FOOD_DETECTION_RANGE : f32 = ANT_RAD * 11.;
+const ANT_FOOD_PICKUP_RANGE : f32 = ANT_RAD;
+const ANT_HOME_DEPOSIT_RANGE : f32 = ANT_RAD*3.;
 
 pub const HOME_MARKER_LIFE : f32 = 25.0;
 pub const FOOD_MARKER_LIFE : f32 = 35.0;
 
+pub const HOME_POS : Vec2 = Vec2::ZERO;
+
 #[derive(Debug)]
 pub enum Gobj {
 	Player(Vec2),
-	Ant(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, Vec2, AntState),
+	Ant(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
 }
 impl Gobj {
 	pub fn new_ant(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Ant(mw, fw, *pos, *pos, *pos, AntState::Wander(0., 0., 0.))
+		Gobj::Ant(mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
 }
 impl GameObject for Gobj {
@@ -43,22 +46,36 @@ impl GameObject for Gobj {
 				*pos += iv*d*PLAYER_SPEED;
 				true
 			},
-			Ant(marker_world, food_world, pos, target, last_marker_pos, state) => {
+			Ant(marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
 				let heading = *target - *pos;
 				let heading =
 					if heading.length() != 0.0 { heading.normalize() }
 					else { heading };
-				let closest_marker_food = marker_world.borrow_mut()
-					.detect_marker(
+				let closest_marker_food = marker_world.borrow()
+					.local_markers(
 						pos,
 						&heading,
-						&|m| match *m { Marker::Food(..) => true, _ => false }
+						&|m| match *m { Marker::Food(..) => true, _ => false })
+					.iter()
+					.map(|m| m.clone())
+					//.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
+					.min_by(|a, b| match a.pos().distance(*pos) < b.pos().distance(*pos) {
+							true => std::cmp::Ordering::Less,
+							false => std::cmp::Ordering::Greater,
+						}
 					);
-				let closest_marker_home = marker_world.borrow_mut()
-					.detect_marker(
+				let closest_marker_home = marker_world.borrow()
+					.local_markers(
 						pos,
 						&heading,
-						&|m| match *m { Marker::Home(..) => true, _ => false }
+						&|m| match *m { Marker::Home(..) => true, _ => false })
+					.iter()
+					.map(|m| m.clone())
+					//.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
+					.min_by(|a, b| match a.pos().distance(HOME_POS) < b.pos().distance(HOME_POS) {
+							true => std::cmp::Ordering::Less,
+							false => std::cmp::Ordering::Greater,
+						}
 					);
 
 				let closest_food_id = food_world.borrow().find_food(pos, &heading);
@@ -71,9 +88,7 @@ impl GameObject for Gobj {
 
 				use AntState::*;
 
-				let mut next_marker = None;
-				let next_state = match state {
-					Wander(time_left_until_next_angle, a, avel) => {
+				let wander = |time_left_until_next_angle : &mut f32, a : &mut f32, avel : &mut f32, target : &mut Vec2| {
 						let rtarget = *target - *pos;
 						let angle_target = rtarget.y.atan2(rtarget.x);
 						let angle_current = lerp(angle_target, *a, ANT_WANDER_TURN_SPEED*d);
@@ -86,7 +101,14 @@ impl GameObject for Gobj {
 							*avel = rand::gen_range(-PI, PI);
 							*a = rand::gen_range(-PI, PI)*2.;
 						}
+					};
+
+				let mut next_target = target.clone();
+				let mut next_marker = None;
+				let next_state = match state {
+					Wander(time_left_until_next_angle, a, avel) => {
 						next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
+						wander(time_left_until_next_angle, a, avel, target);
 
 						if closest_food_id.is_some() &&
 							get_closest_food_pos().distance(*pos)
@@ -102,7 +124,7 @@ impl GameObject for Gobj {
 						}
 					},
 					GetFood(food_pos) => {
-						*target = *food_pos;
+						next_target = *food_pos;
 						if closest_food_id.is_none() {
 							Wander(0., 0., 0.)
 						} else {
@@ -112,7 +134,7 @@ impl GameObject for Gobj {
 									.borrow_mut()
 									.take_food(closest_food_id.unwrap());
 								match f {
-									Some(f) => GoHome(f, closest_marker_home),
+									Some(f) => GoHome(f, closest_marker_home, 0.,0.,0.),
 									None => Wander(0.,0.,0.)
 								}
 							} else {
@@ -128,18 +150,37 @@ impl GameObject for Gobj {
 							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
 							GetFood(get_closest_food_pos())
 						} else {
+							next_marker = Some(Marker::Home(*pos, HOME_MARKER_LIFE));
 							match m {
 								Some(Marker::Food(p, ..)) => {
-									*target = *p;
+									next_target = *p;
 									Follow(closest_marker_food)
 								},
 								_ => Wander(0., 0., 0.)
 							}
 						}
 					},
-					GoHome(_food, _m) => {
+					GoHome(food, m, time_left_until_next_angle, a, avel) => {
 						next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
-						state.clone()
+						if pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
+							Wander(0., 0., 0.)
+						}
+						else {
+							match m {
+								Some(m) => {
+									next_target = *m.pos();
+									GoHome(food.clone(), closest_marker_home, *time_left_until_next_angle, *a, *avel)
+								},
+								None => {
+									next_marker = None;
+									wander(time_left_until_next_angle, a, avel, target);
+									let m = if closest_marker_home.is_some()
+										{ closest_marker_home }
+										else { closest_marker_food };
+									GoHome(food.clone(), m, *time_left_until_next_angle, *a, *avel)
+								}
+							}
+						}
 					},
 				};
 				*state = next_state;
@@ -151,6 +192,12 @@ impl GameObject for Gobj {
 					marker_world.borrow_mut().create_marker(next_marker.unwrap());
 					*last_marker_pos = *pos;
 				}
+
+				*target_change_cooldown -= d;
+				if *target_change_cooldown < 0. {
+					*target = next_target;
+					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
+				}
 				true
 			},
 		}
@@ -160,17 +207,19 @@ impl GameObject for Gobj {
 		let co = rd.camera_offset();
 		match self {
 			Player(pos) => draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, RED),
-			Ant(_mw, _fw, pos, target, _lmp, state) => {
+			Ant(_mw, _fw, pos, target, tcc, _lmp, state) => {
 				let pos = *pos - co;
 				let target = *target - co;
+				let col = match state {
+					AntState::Wander(..) => BLUE,
+					AntState::Follow(..) => PURPLE,
+					AntState::GetFood(..) => DARKGREEN,
+					AntState::GoHome(..) => GREEN,
+				};
 
-				draw_circle(
-					pos.x,
-					pos.y,
-					ANT_RAD*0.9,
-					BLUE);
-				draw_line(pos.x, pos.y, target.x, target.y, 2., MAGENTA);
-				quick_text(&format!("{:?}", state), pos, WHITE);
+				draw_circle(pos.x, pos.y, ANT_RAD*0.9, col);
+				draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
+				//quick_text(&format!("{:?}", state), pos, WHITE);
 			},
 		}
 	}
