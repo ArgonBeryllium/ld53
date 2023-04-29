@@ -24,14 +24,14 @@ pub trait GameObject {
 }
 pub type GameObjectID = usize;
 
-pub struct ObjectSet<T : GameObject + PartialEq> {
+pub struct ObjectSet<T : GameObject> {
 	pub objects : HashMap<GameObjectID, T>,
 	pub to_be_destroyed : Vec<GameObjectID>,
 	next_id : GameObjectID,
 }
 
 #[allow(dead_code)]
-impl<T : GameObject + PartialEq> ObjectSet<T> {
+impl<T : GameObject> ObjectSet<T> {
 	pub fn new() -> Self {
 		ObjectSet {
 			objects: HashMap::new(),
@@ -56,10 +56,6 @@ impl<T : GameObject + PartialEq> ObjectSet<T> {
 		}
 	}
 
-	pub fn get_id(&self, obj : &T) -> usize {
-		*self.objects.iter().find(|(_id, o)| *o == obj)
-			.expect("GameObject  not found").0
-	}
 	pub fn get_obj(&self, id : GameObjectID) -> &T {
 		&self.objects.get(&id)
 			.expect(&format!("No GameObject with id {id}"))

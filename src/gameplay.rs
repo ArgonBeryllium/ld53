@@ -50,9 +50,9 @@ impl Scene for Gameplay {
 
 		let mp = mouse_pos_scaled_rd(&self.rd);
 		if is_mouse_button_pressed(MouseButton::Left) {
-			self.objs.create(Gobj::new_ant(self.markers.clone(), &mp));
+			self.objs.create(Gobj::new_ant(self.markers.clone(), self.food.clone(), &mp));
 		}
-		else if is_mouse_button_down(MouseButton::Right) {
+		else if is_mouse_button_pressed(MouseButton::Right) {
 			self.food.borrow_mut().put_food(Food::new(&mp));
 		}
     }

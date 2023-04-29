@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 use crate::game_objects::RenderData;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Food {
-	pos : Vec2
+	pub pos : Vec2
 }
 impl Food {
 	pub fn new(pos : &Vec2) -> Self {
@@ -19,16 +19,19 @@ impl Food {
 	}
 }
 
-#[derive(Debug, PartialEq)]
+pub type FoodID = usize;
+#[derive(Debug)]
 pub struct FoodWorld {
 	grid_size : f32,
-	food : HashMap<(i32, i32), Vec<Food>>,
+	food : HashMap<(i32, i32), HashMap<FoodID, Food>>,
+	next_id : FoodID,
 }
 impl FoodWorld {
 	pub fn new(grid_size : f32) -> Self {
 		FoodWorld {
 			grid_size,
-			food: HashMap::new()
+			food: HashMap::new(),
+			next_id: 0,
 		}
 	}
 	pub fn pos_to_key(&self, pos : &Vec2) -> (i32, i32) {
@@ -38,14 +41,15 @@ impl FoodWorld {
 	pub fn put_food(&mut self, f : Food) {
 		let key = self.pos_to_key(&f.pos);
 		if !self.food.contains_key(&key) {
-			self.food.insert(key, Vec::new());
+			self.food.insert(key, HashMap::new());
 		}
+		self.next_id += 1;
 		self.food
 			.get_mut(&key)
 			.unwrap()
-			.push(f);
+			.insert(self.next_id, f);
 	}
-	pub fn find_food(&self, pos : &Vec2, heading : &Vec2) -> Option<&Food> {
+	pub fn find_food(&self, pos : &Vec2, heading : &Vec2) -> Option<FoodID> {
 		let p = *pos+*heading;
 		let k = self.pos_to_key(&p);
 
@@ -56,9 +60,9 @@ impl FoodWorld {
 					continue;
 				}
 				for m in &self.food[&(x, y)] {
-					let d = m.pos.distance(p);
+					let d = m.1.pos.distance(p);
 					if d < md {
-						winner = Some(m);
+						winner = Some(*m.0);
 						md = d;
 					}
 				}
@@ -66,13 +70,18 @@ impl FoodWorld {
 		}
 		winner
 	}
-	pub fn take_food(&mut self, f : &Food) -> Option<Food> {
+	pub fn get_food(&self, food_id : FoodID) -> Option<&Food> {
+		for (_, v) in self.food.iter() {
+			if v.contains_key(&food_id) {
+				return v.get(&food_id)
+			}
+		}
+		None
+	}
+	pub fn take_food(&mut self, food_id : FoodID) -> Option<Food> {
 		for (_, v) in self.food.iter_mut() {
-			let i = 0;
-			while i < v.len() {
-				if v[i] == *f {
-					return Some(v.remove(i));
-				}
+			if v.contains_key(&food_id) {
+				return v.remove(&food_id)
 			}
 		}
 		None
@@ -90,7 +99,7 @@ impl FoodWorld {
 			let pos = pos - rd.camera_offset();
 			draw_rectangle_lines(pos.x, pos.y, self.grid_size, self.grid_size, 2., PINK);
 			for f in v {
-				f.render(rd);
+				f.1.render(rd);
 			}
 		}
 	}

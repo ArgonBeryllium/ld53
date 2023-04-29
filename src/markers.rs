@@ -3,7 +3,7 @@ use macroquad::{prelude::{Vec2, RED, vec2, WHITE}, shapes::{draw_rectangle_lines
 
 use crate::{game_objects::RenderData, gobj::{FOOD_MARKER_LIFE, HOME_MARKER_LIFE}};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Marker {
 	Home(Vec2, f32),
 	Food(Vec2, f32)
@@ -57,7 +57,7 @@ impl MarkerWorld {
 			.unwrap()
 			.push(m);
 	}
-	pub fn detect_marker(&self, pos : &Vec2, heading : &Vec2) -> Option<&Marker> {
+	pub fn detect_marker(&self, pos : &Vec2, heading : &Vec2, condition : &dyn Fn(&Marker) -> bool) -> Option<Marker> {
 		let p = *pos+*heading;
 		let k = self.pos_to_key(&p);
 
@@ -68,6 +68,7 @@ impl MarkerWorld {
 					continue;
 				}
 				for m in &self.markers[&(x, y)] {
+					if !condition(m) { continue; }
 					let d = m.pos().distance(p);
 					if d < md {
 						winner = Some(m);
@@ -76,7 +77,7 @@ impl MarkerWorld {
 				}
 			}
 		}
-		winner
+		winner.cloned()
 	}
 
 	pub fn update(&mut self, d : f32) {
