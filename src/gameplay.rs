@@ -6,7 +6,6 @@ use crate::food::Food;
 use crate::markers::Marker;
 use crate::prelude::*;
 use crate::gobj::*;
-use crate::world::COLLISION_GRID_SIZE_TEXPIXELS;
 use crate::world::MAP_DIMS;
 use crate::world::MAP_TOPLEFT;
 use crate::world::World;
@@ -68,10 +67,10 @@ impl Scene for Gameplay {
 			self.player_pos() + get_ivn()*10.,
 			d*6.);
 
-		let _mp = mouse_pos_scaled_rd(&self.rd);
+		let mp = mouse_pos_scaled_rd(&self.rd);
 		if is_mouse_button_pressed(MouseButton::Left) {
 			self.objs.create(Gobj::new_particles(
-					&mouse_pos_scaled_rd(&self.rd),
+					&mp,
 					100,
 					3.,
 					1.,
@@ -82,7 +81,7 @@ impl Scene for Gameplay {
 		}
 		else if is_mouse_button_pressed(MouseButton::Right) {
 			self.objs.create(Gobj::new_particles(
-					&mouse_pos_scaled_rd(&self.rd),
+					&mp,
 					100,
 					3.,
 					10.,
@@ -118,8 +117,6 @@ impl Scene for Gameplay {
     }
 
     fn render(&mut self, _q : &mut SignalQueue) {
-		let co = self.rd.camera_offset();
-
 		clear_background(COL_BG);
 		//const TS : f32 = 40.;
 		//let mut tp = self.player_pos();
@@ -138,18 +135,58 @@ impl Scene for Gameplay {
 		//	}
 		//	x += TS;
 		//}
+
 		let mapp = self.rd.cast_pos(&MAP_TOPLEFT);
 		draw_texture_ex(self.rd.assets.clone().unwrap().tex_map, mapp.x, mapp.y, WHITE,
 			DrawTextureParams {
 				dest_size: Some(MAP_DIMS*self.rd.scale_unit(1.)),
 				..DrawTextureParams::default()
 			});
+
+		self.world.borrow().marker.render(&self.rd);
+		self.world.borrow().food.render(&self.rd);
+        self.objs.render(&self.rd);
+
+		let map_vignette_scale = 2.;
+		let map_vignette_dims = MAP_DIMS*self.rd.scale_unit(map_vignette_scale);
+		let map_vignette_pos = self.rd.cast_pos(&(
+				MAP_TOPLEFT + MAP_DIMS/2.
+				- MAP_DIMS*map_vignette_scale/2.
+				)
+			);
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, WHITE,
+			DrawTextureParams {
+				dest_size: Some(map_vignette_dims),
+				..DrawTextureParams::default()
+			});
+
+		// TODO remove; debug
+		self.debug_render();
+		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
+    }
+}
+#[allow(dead_code)]
+impl Gameplay {
+	fn debug_render(&mut self) {
+		self.rd.zoom = lerp(self.rd.zoom, if is_key_down(KeyCode::LeftShift) { 0.10 } else { 1.0 }, get_frame_time()*5.);
+
+		if is_key_down(KeyCode::C) { self.render_debug_map_col() }
+		let hcp = self.rd.cast_pos(&HOME_POS);
+		draw_circle(hcp.x, hcp.y, self.rd.scale_unit(ANT_HOME_DEPOSIT_RANGE), DARKBLUE);
+		let hbp = self.rd.cast_pos(&vec2(-HARD_BOUNDS.x, -HARD_BOUNDS.y));
+		let hbs = HARD_BOUNDS*self.rd.scale_unit(1.);
+		draw_rectangle_lines(hbp.x, hbp.y, hbs.x*2., hbs.y*2., 1.0, YELLOW);
+
+		let mp = mouse_pos_scaled_rd(&self.rd);
+		draw_circle(mp.x, mp.y, 4., PINK);
+	}
+	fn render_debug_map_col(&self) {
 		let css = self.world.borrow().collision_cell_size*self.rd.scale_unit(1.);
 		for (p, b) in self.world.borrow().collision_map.iter() {
-			let p = vec2(p.0 as f32, p.1 as f32)
+			let p = self.rd.cast_pos(
+				&(vec2(p.0 as f32, p.1 as f32)
 				* css
-				+ MAP_TOPLEFT
-				- co;
+				+ MAP_TOPLEFT));
 			draw_rectangle_lines(p.x, p.y,
 				css.x,
 				css.y, 1.0, RED);
@@ -159,18 +196,5 @@ impl Scene for Gameplay {
 					css.y, RED);
 			}
 		}
-
-
-		// TODO remove; debug
-		self.rd.zoom = lerp(self.rd.zoom, if is_key_down(KeyCode::LeftShift) { 0.4 } else { 1.0 }, get_frame_time()*5.);
-		draw_circle(HOME_POS.x - co.x, HOME_POS.y - co.y, ANT_HOME_DEPOSIT_RANGE, DARKBLUE);
-		draw_rectangle(-HARD_BOUNDS.x - co.x, -HARD_BOUNDS.y - co.y,
-			HARD_BOUNDS.x*2., HARD_BOUNDS.y*2., Color::from_rgba(0,55,55,55));
-
-		self.world.borrow().marker.render(&self.rd);
-		self.world.borrow().food.render(&self.rd);
-        self.objs.render(&self.rd);
-
-		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
-    }
+	}
 }

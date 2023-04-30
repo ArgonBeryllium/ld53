@@ -10,7 +10,7 @@ pub fn mouse_pos_scaled_rd(rd : &RenderData) -> Vec2 {
 	// TODO remove; debug
 	if is_key_down(KeyCode::LeftControl) { 
 		return vec2(x, y) + rd.camera_offset()
-	 }
+	}
 	vec2(x*SCALE, y*SCALE) + rd.camera_offset()
 }
 pub fn get_iv() -> Vec2 {

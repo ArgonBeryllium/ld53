@@ -4,7 +4,7 @@ use macroquad::prelude::{Vec2, vec2};
 
 use crate::{food::FoodWorld, markers::MarkerWorld, prelude::Assets};
 
-pub const COLLISION_GRID_SIZE_TEXPIXELS : f32 = 10.;
+pub const COLLISION_GRID_SIZE_TEXPIXELS : f32 = 4.;
 const MAP_SIZE : f32 = 1500.;
 pub const MAP_DIMS : Vec2 = Vec2::new(MAP_SIZE, MAP_SIZE);
 pub const MAP_TOPLEFT : Vec2 = Vec2::new(-MAP_DIMS.x/2., -MAP_DIMS.y/2.);

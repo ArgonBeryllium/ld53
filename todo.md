@@ -20,8 +20,6 @@
 - food textures
 
 ## Nice to have
-- dust particles
-- pheromone glow
 - replay
 - sound
 	- [ ] danger cues
