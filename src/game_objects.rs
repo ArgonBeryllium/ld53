@@ -1,16 +1,21 @@
 use std::collections::HashMap;
 
 use macroquad::prelude::{Vec2, vec2, is_key_down, KeyCode};
-use crate::{config::{W, H}, prelude::{REAL_H, REAL_W}};
+use crate::{config::{W, H}, prelude::{REAL_H, REAL_W, Assets}};
 
 pub struct RenderData {
 	pub camera_pos : Vec2,
+	pub assets : Option<Assets>,
 }
 impl RenderData {
 	pub fn new() -> Self {
 		RenderData {
-			camera_pos: Vec2::ZERO
+			camera_pos: Vec2::ZERO,
+			assets: None,
 		}
+	}
+	pub fn init(&mut self, a : &Assets) {
+		self.assets = Some(a.clone());
 	}
 	pub fn camera_offset(&self) -> Vec2 {
 		// TODO remove; debug

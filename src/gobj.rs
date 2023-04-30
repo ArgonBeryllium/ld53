@@ -27,18 +27,45 @@ pub const FOOD_MARKER_LIFE : f32 = 35.0;
 pub const HOME_POS : Vec2 = Vec2::ZERO;
 pub const HARD_BOUNDS : Vec2 = vec2(ANT_RAD*100., ANT_RAD*50.);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub enum ParticleStyle {
+	Explosive(f32, f32),
+	Orbit(f32, f32)
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum Gobj {
-	Player(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2),
-	Ant(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
-	Scout(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2),
+	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2),
+	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
+	Particles(f32, f32, Color, Vec2, ParticleStyle, Vec<Vec2>, Vec<Vec2>, Vec<f32>),
 }
 impl Gobj {
-	pub fn new_ant(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Ant(mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
+	pub fn new_ant(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
+		Gobj::Ant(sq, mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
-	pub fn new_player(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Player(mw, fw, *pos, None, *pos)
+	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
+		Gobj::Player(sq, mw, fw, *pos, None, *pos)
+	}
+	pub fn new_particles(pos : &Vec2, count : usize, life : f32, radius : f32, col : Color, style : ParticleStyle) -> Self {
+		let mut positions = Vec::new();
+		let mut velocities = Vec::new();
+		let mut lives = Vec::new();
+		match style {
+			ParticleStyle::Explosive(initial, _dissipation) =>
+				for _ in 0..count {
+					positions.push(random_ring_point(pos, 0., radius));
+					velocities.push(random_ring_point(&Vec2::ZERO, initial * 0.8, initial * 1.2));
+					lives.push(life * rand::gen_range(0.5, 1.));
+				},
+			ParticleStyle::Orbit(force, _damp) =>
+				for _ in 0..count {
+					let p = random_ring_point(pos, 0., radius);
+					positions.push(p);
+					velocities.push((p-*pos)*force*rand::gen_range(-0.8, 0.8));
+					lives.push(life * rand::gen_range(0.5, 1.));
+				},
+		}
+		Gobj::Particles(life, life, col, *pos, style, positions, velocities, lives)
 	}
 }
 impl GameObject for Gobj {
@@ -46,14 +73,14 @@ impl GameObject for Gobj {
 		let d = get_frame_time();
 		use Gobj::*;
 		match self {
-			Player(marker_world, food_world, pos, marker_type, last_marker_pos) => {
+			Player(spawn_queue, marker_world, _food_world, pos, marker_type, last_marker_pos) => {
 				if pos.distance(*last_marker_pos) > ANT_MARKER_DIST {
 					match marker_type {
 						None => (),
 						Some(Marker::Home(..)) => marker_world.borrow_mut()
-							.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE)),
+							.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone()),
 						Some(Marker::Food(..)) => marker_world.borrow_mut()
-							.create_marker(Marker::Food(*pos, FOOD_MARKER_LIFE)),
+							.create_marker(Marker::Food(*pos, FOOD_MARKER_LIFE), spawn_queue.clone()),
 					}
 					*last_marker_pos = *pos;
 				}
@@ -68,7 +95,7 @@ impl GameObject for Gobj {
 				*pos += iv*d*PLAYER_SPEED;
 				true
 			},
-			Ant(marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
+			Ant(spawn_queue, marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
 				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; target.x = pos.x - (target.x - pos.x); }
 				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; target.x = pos.x - (target.x - pos.x); }
 				if pos.y >  HARD_BOUNDS.y { pos.y =  HARD_BOUNDS.y; target.y = pos.y - (target.y - pos.y);}
@@ -182,7 +209,7 @@ impl GameObject for Gobj {
 									next_target = *p;
 									Follow(closest_marker_food)
 								},
-								_ => Wander(0., 0., 0.)
+								_ => Wander(0., random_angle(), 0.)
 							}
 						}
 					},
@@ -205,44 +232,44 @@ impl GameObject for Gobj {
 				*target_change_cooldown -= d;
 				if *target_change_cooldown < 0. {
 					*target = next_target;
-					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
+					*target_change_cooldown = rand::gen_range(0.0, 0.1) + ANT_MARKER_DIST/ANT_SPEED;
 				}
 
 				if pos != target {
 					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
 				}
 				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST && next_marker.is_some() {
-					marker_world.borrow_mut().create_marker(next_marker.unwrap());
+					marker_world.borrow_mut().create_marker(next_marker.unwrap(), spawn_queue.clone());
 					*last_marker_pos = *pos;
 				}
 				true
 			},
-			Scout(marker_world, _food_world, pos, target, target_change_cooldown, last_marker_pos) => {
-				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
-				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
-				if pos.y >  HARD_BOUNDS.y { pos.y = HARD_BOUNDS.y; }
-				if pos.y < -HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
-				*target_change_cooldown -= d;
-				if *target_change_cooldown < 0. {
-					*target = random_ring_point(pos, ANT_MARKER_DIST*3., ANT_MARKER_DIST*10.);
-					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
+			Particles(_o_life, life, _col, pos, style, poss, vels, lives) => {
+				match style {
+					ParticleStyle::Explosive(_, dissipation) =>
+						for i in 0..poss.len() {
+							poss[i] += vels[i] * d;
+							vels[i] = vels[i] - vels[i] * (*dissipation) * d;
+							lives[i] -= d;
+						},
+					ParticleStyle::Orbit(force, damp) =>
+						for i in 0..poss.len() {
+							poss[i] += vels[i] * d;
+							vels[i] += (poss[i] - *pos) * -*force * d;
+							vels[i] = vels[i] - vels[i] * (*damp) * d;
+							lives[i] -= d;
+						},
 				}
-				if pos != target {
-					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
-				}
-				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST {
-					marker_world.borrow_mut().create_marker(Marker::Home(*pos, HOME_MARKER_LIFE));
-					*last_marker_pos = *pos;
-				}
-				true
-			}
+				*life -= d;
+				*life > 0.0
+			},
 		}
 	}
 	fn render(&self, rd : &RenderData) {
 		use Gobj::*;
 		let co = rd.camera_offset();
 		match self {
-			Player(_, _, pos, marker_type, _) => {
+			Player(_, _, _, pos, marker_type, _) => {
 				let col = match marker_type {
 					None => GRAY,
 					Some(Marker::Home(..)) => BLUE,
@@ -250,9 +277,8 @@ impl GameObject for Gobj {
 				};
 				draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, col);
 			},
-			Ant(_mw, _fw, pos, target, tcc, _lmp, state) => {
+			Ant(_ow, _mw, _fw, pos, _target, _tcc, _lmp, state) => {
 				let pos = *pos - co;
-				let target = *target - co;
 				let col = match state {
 					AntState::Wander(..) => BLUE,
 					AntState::Follow(..) => PURPLE,
@@ -261,14 +287,22 @@ impl GameObject for Gobj {
 				};
 
 				draw_circle(pos.x, pos.y, ANT_RAD, col);
-				draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
+				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
 			},
-			Scout(_, _, pos, target, _, _) => {
-				let pos = *pos - co;
-				let target = *target - co;
-				draw_circle(pos.x, pos.y, ANT_RAD, LIGHTGRAY);
-				draw_line(pos.x, pos.y, target.x, target.y, 1.0, PURPLE);
-			},
+			Particles(o_life, _life, col, _pos, _style, poss, _vels, lives) => {
+				for i in 0..poss.len() {
+					if lives[i] < 0.0 { continue; }
+					let dim = lives[i]*PARTICLE_SIZE / o_life;
+					let pos = poss[i] - rd.camera_offset() - dim*0.5;
+					draw_texture_ex(
+						rd.assets.clone().unwrap().tex_fuzzy_0,
+						pos.x, pos.y, *col,
+						DrawTextureParams {
+							dest_size: Some(vec2(dim, dim)),
+							..DrawTextureParams::default()
+						});
+				}
+			}
 		}
 	}
 }

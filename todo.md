@@ -2,6 +2,8 @@
 - home
 	- [x] static access
 	- [ ] depositing pellets
+		- [ ] goal
+		- [ ] indicator
 - dangers
 	- [ ] wandering
 	- [ ] eating ants
@@ -20,7 +22,6 @@
 
 ## Nice to have
 - dust particles
-- pheromone particles
 - pheromone glow
 - replay
 - sound
@@ -36,3 +37,5 @@
 	- [x] dissipation
 	- [x] following
 - player pheromones (BONUS: agents getting stuck is now a gameplay mechanic lmao)
+
+- pheromone particles
