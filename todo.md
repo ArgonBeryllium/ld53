@@ -1,7 +1,7 @@
 ## Necessary
-- fix clumping
+- player pheromones (BONUS: agents getting stuck is now a gameplay mechanic lmao)
 - home
-	- [ ] static access
+	- [x] static access
 	- [ ] depositing pellets
 - dangers
 	- [ ] wandering
