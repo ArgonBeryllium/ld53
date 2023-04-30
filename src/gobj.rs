@@ -39,10 +39,14 @@ pub enum ParticleStyle {
 pub enum Gobj {
 	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2, Option<Food>),
 	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
+	Scout(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Vec2, Vec2, f32, Vec2),
 	Particles(f32, f32, Color, Vec2, ParticleStyle, Vec<Vec2>, Vec<Vec2>, Vec<f32>),
 }
 impl Gobj {
 	pub fn new_ant(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
+		if rand::gen_range(0., 1.) < 0.1 {
+			return Gobj::Scout(sq, mw, *pos, *pos, 0., *pos)
+		}
 		Gobj::Ant(sq, mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
 	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
@@ -266,6 +270,25 @@ impl GameObject for Gobj {
 				}
 				true
 			},
+			Scout(spawn_queue, marker_world, pos, target, target_change_cooldown, last_marker_pos) => {
+				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
+				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
+				if pos.y >  HARD_BOUNDS.y { pos.y = HARD_BOUNDS.y; }
+				if pos.y < -HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; }
+				*target_change_cooldown -= d;
+				if *target_change_cooldown < 0. {
+					*target = random_ring_point(pos, ANT_MARKER_DIST*3., ANT_MARKER_DIST*10.);
+					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
+				}
+				if pos != target {
+					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
+				}
+				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST {
+					marker_world.borrow_mut().create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone());
+					*last_marker_pos = *pos;
+				}
+				true
+			},
 			Particles(_o_life, life, _col, pos, style, poss, vels, lives) => {
 				match style {
 					ParticleStyle::Explosive(_, dissipation) =>
@@ -314,6 +337,14 @@ impl GameObject for Gobj {
 				let pos = rd.cast_pos(pos);
 				let s = rd.scale_unit(ANT_RAD);
 				draw_circle(pos.x, pos.y, s, col);
+				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
+			},
+			Scout(_ow, _mw, pos, _target, _tcc, _lmp) => {
+				let col = COL_MARKER_HOME;
+				let pos = rd.cast_pos(pos);
+				let s = rd.scale_unit(ANT_RAD);
+				draw_circle(pos.x, pos.y, s, col);
+				quick_text("S", pos, BLACK);
 				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
 			},
 			Particles(o_life, _life, col, _pos, _style, poss, _vels, lives) => {
