@@ -13,6 +13,7 @@ mod gobj;
 mod ants;
 mod markers;
 mod food;
+mod world;
 
 #[macroquad::main(window_conf())]
 async fn main() {

@@ -9,9 +9,9 @@
 	- [ ] eating ants
 		- [ ] lose state, restart
 - map
-	- [ ] bounds
-	- [ ] geometry w/collisions
-	- [ ] mini view
+	- [x] bounds
+	- [x] geometry w/collisions
+	- [x] mini view
 	- [ ] texture
 - periodic food spawning
 

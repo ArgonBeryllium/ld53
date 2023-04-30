@@ -1,7 +1,7 @@
 use crate::food::Food;
-use crate::food::FoodWorld;
 use crate::markers::Marker;
-use crate::markers::MarkerWorld;
+use crate::world::MAP_DIMS;
+use crate::world::World;
 use std::cell::RefCell;
 use std::f32::consts::PI;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ pub const HOME_MARKER_LIFE : f32 = 60.0;
 pub const FOOD_MARKER_LIFE : f32 = 35.0;
 
 pub const HOME_POS : Vec2 = Vec2::ZERO;
-pub const HARD_BOUNDS : Vec2 = vec2(ANT_RAD*100., ANT_RAD*50.);
+pub const HARD_BOUNDS : Vec2 = Vec2::new(MAP_DIMS.x/2., MAP_DIMS.y/2.);
 
 #[derive(Debug, Clone)]
 pub enum ParticleStyle {
@@ -37,20 +37,20 @@ pub enum ParticleStyle {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Gobj {
-	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2, Option<Food>),
-	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
-	Scout(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Vec2, Vec2, f32, Vec2),
+	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Option<Marker>, Vec2, Option<Food>),
+	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Vec2, f32, Vec2, AntState),
+	Scout(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Vec2, f32, Vec2),
 	Particles(f32, f32, Color, Vec2, ParticleStyle, Vec<Vec2>, Vec<Vec2>, Vec<f32>),
 }
 impl Gobj {
-	pub fn new_ant(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
+	pub fn new_ant(sq : Rc<RefCell<Vec<Gobj>>>, w : Rc<RefCell<World>>, pos : &Vec2) -> Self {
 		if rand::gen_range(0., 1.) < 0.1 {
-			return Gobj::Scout(sq, mw, *pos, *pos, 0., *pos)
+			return Gobj::Scout(sq, w, *pos, *pos, 0., *pos)
 		}
-		Gobj::Ant(sq, mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
+		Gobj::Ant(sq, w, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
-	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Player(sq, mw, fw, *pos, None, *pos, None)
+	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, w : Rc<RefCell<World>>, pos : &Vec2) -> Self {
+		Gobj::Player(sq, w, *pos, None, *pos, None)
 	}
 	pub fn new_particles(pos : &Vec2, count : usize, life : f32, radius : f32, col : Color, style : ParticleStyle) -> Self {
 		let mut positions = Vec::new();
@@ -74,18 +74,43 @@ impl Gobj {
 		Gobj::Particles(life, life, col, *pos, style, positions, velocities, lives)
 	}
 }
+impl Gobj {
+	fn translate_collidable(pos : &mut Vec2, delta : Vec2, world : Rc<RefCell<World>>) -> bool {
+		if world.borrow().is_collision(pos) {
+			panic!("Stuck agent at {pos}");
+		}
+		if !world.borrow().is_collision(&(*pos + delta)) {
+			*pos += delta;
+			true
+		}
+		else {
+			const DIRS : &[Vec2] = &[
+				Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y
+			];
+			let proj_delta = DIRS.iter()
+				.map(|d| delta*d.dot(delta))
+				.filter(|v| !world.borrow().is_collision(&(*pos+*v)))
+				.max_by(|v, w|
+					v.length().partial_cmp(&w.length()).unwrap());
+			if proj_delta.is_some() {
+				*pos += proj_delta.unwrap();
+				true
+			} else { false }
+		}
+	}
+}
 impl GameObject for Gobj {
 	fn update(&mut self) -> bool {
 		let d = get_frame_time();
 		use Gobj::*;
 		match self {
-			Player(spawn_queue, marker_world, food_world, pos, marker_type, last_marker_pos, carried_food) => {
+			Player(spawn_queue, world, pos, marker_type, last_marker_pos, carried_food) => {
 				if pos.distance(*last_marker_pos) > ANT_MARKER_DIST {
 					match marker_type {
 						None => (),
-						Some(Marker::Home(..)) => marker_world.borrow_mut()
+						Some(Marker::Home(..)) => world.borrow_mut().marker
 							.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone()),
-						Some(Marker::Food(..)) => marker_world.borrow_mut()
+						Some(Marker::Food(..)) => world.borrow_mut().marker
 							.create_marker(Marker::Food(*pos, FOOD_MARKER_LIFE), spawn_queue.clone()),
 					}
 					*last_marker_pos = *pos;
@@ -98,21 +123,22 @@ impl GameObject for Gobj {
 					}
 				}
 				let iv = get_ivn();
-				*pos += iv*d*PLAYER_SPEED;
+				Self::translate_collidable(pos, iv*d*PLAYER_SPEED, world.clone());
 
-				let closest_food_id = food_world.borrow().find_food(pos, &iv);
+				let closest_food_id = world.borrow().food.find_food(pos, &iv);
 				let get_closest_food_pos = ||
-					food_world
+					world
 					.borrow()
+					.food
 					.get_food(closest_food_id.unwrap())
 					.expect("Closest food no longer exists")
 					.pos;
 				if closest_food_id.is_some()
 					&& carried_food.is_none()
 					&& get_closest_food_pos().distance(*pos) < PLAYER_PICKUP_RANGE {
-					*carried_food = food_world
-						.borrow_mut().
-						take_food(closest_food_id.unwrap());
+					*carried_food = world.borrow_mut()
+						.food
+						.take_food(closest_food_id.unwrap());
 				}
 				else if carried_food.is_some()
 					&& pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
@@ -121,11 +147,7 @@ impl GameObject for Gobj {
 				}
 				true
 			},
-			Ant(spawn_queue, marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
-				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; target.x = pos.x - (target.x - pos.x); }
-				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; target.x = pos.x - (target.x - pos.x); }
-				if pos.y >  HARD_BOUNDS.y { pos.y =  HARD_BOUNDS.y; target.y = pos.y - (target.y - pos.y);}
-				if pos.y < -HARD_BOUNDS.y { pos.y = -HARD_BOUNDS.y; target.y = pos.y - (target.y - pos.y);}
+			Ant(spawn_queue, world, pos, target, target_change_cooldown, last_marker_pos, state) => {
 				let heading = *target - *pos;
 				let heading =
 					if heading.length() != 0.0 { heading.normalize() }
@@ -148,7 +170,7 @@ impl GameObject for Gobj {
 					};
 
 				let mut next_marker = None;
-				let closest_marker_food = marker_world.borrow()
+				let closest_marker_food = world.borrow().marker
 					.local_markers(
 						pos,
 						&heading,
@@ -161,7 +183,7 @@ impl GameObject for Gobj {
 							false => std::cmp::Ordering::Greater,
 						}
 					);
-				let closest_marker_home = marker_world.borrow()
+				let closest_marker_home = world.borrow().marker
 					.local_markers(
 						pos,
 						&heading,
@@ -175,10 +197,9 @@ impl GameObject for Gobj {
 						}
 					);
 
-				let closest_food_id = food_world.borrow().find_food(pos, &heading);
+				let closest_food_id = world.borrow().food.find_food(pos, &heading);
 				let get_closest_food_pos = ||
-					food_world
-					.borrow()
+					world.borrow().food
 					.get_food(closest_food_id.unwrap())
 					.expect("Closest food no longer exists")
 					.pos;
@@ -209,8 +230,8 @@ impl GameObject for Gobj {
 						} else {
 							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
 							if food_pos.distance(*pos) < ANT_FOOD_PICKUP_RANGE {
-								let f = food_world
-									.borrow_mut()
+								let f = world.borrow_mut()
+									.food
 									.take_food(closest_food_id.unwrap());
 								match f {
 									Some(f) => GoHome(f, closest_marker_home, 0.,0.,0.),
@@ -262,15 +283,17 @@ impl GameObject for Gobj {
 				}
 
 				if pos != target {
-					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
+					if !Self::translate_collidable(pos, (*target - *pos).normalize()*ANT_SPEED*d, world.clone()) {
+						*target = *pos-heading;
+					}
 				}
 				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST && next_marker.is_some() {
-					marker_world.borrow_mut().create_marker(next_marker.unwrap(), spawn_queue.clone());
+					world.borrow_mut().marker.create_marker(next_marker.unwrap(), spawn_queue.clone());
 					*last_marker_pos = *pos;
 				}
 				true
 			},
-			Scout(spawn_queue, marker_world, pos, target, target_change_cooldown, last_marker_pos) => {
+			Scout(spawn_queue, world, pos, target, target_change_cooldown, last_marker_pos) => {
 				if pos.x >  HARD_BOUNDS.x { pos.x =  HARD_BOUNDS.x; }
 				if pos.x < -HARD_BOUNDS.x { pos.x = -HARD_BOUNDS.x; }
 				if pos.y >  HARD_BOUNDS.y { pos.y = HARD_BOUNDS.y; }
@@ -281,10 +304,10 @@ impl GameObject for Gobj {
 					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
 				}
 				if pos != target {
-					*pos += (*target - *pos).normalize()*ANT_SPEED*d;
+					Self::translate_collidable(pos, (*target - *pos).normalize()*ANT_SPEED*d, world.clone());
 				}
 				if last_marker_pos.distance(*pos) > ANT_MARKER_DIST {
-					marker_world.borrow_mut().create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone());
+					world.borrow_mut().marker.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone());
 					*last_marker_pos = *pos;
 				}
 				true
@@ -313,7 +336,7 @@ impl GameObject for Gobj {
 	fn render(&self, rd : &RenderData) {
 		use Gobj::*;
 		match self {
-			Player(_, _, _, pos, marker_type, _, carried_food) => {
+			Player(_, _, pos, marker_type, _, carried_food) => {
 				let col = match marker_type {
 					None => GRAY,
 					Some(Marker::Home(..)) => COL_MARKER_HOME,
@@ -326,7 +349,7 @@ impl GameObject for Gobj {
 					draw_circle(pos.x, pos.y, s*0.7, GREEN);
 				}
 			},
-			Ant(_ow, _mw, _fw, pos, _target, _tcc, _lmp, state) => {
+			Ant(_sq, _w, pos, _target, _tcc, _lmp, state) => {
 				let col = match state {
 					AntState::Wander(..) => COL_MARKER_HOME,
 					AntState::Follow(..) => LIGHTGRAY,
