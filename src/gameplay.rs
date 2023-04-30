@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use macroquad::prelude::*;
 use crate::food::Food;
+use crate::hive::Hive;
 use crate::markers::Marker;
 use crate::prelude::*;
 use crate::gobj::*;
@@ -10,28 +11,93 @@ use crate::world::MAP_DIMS;
 use crate::world::MAP_TOPLEFT;
 use crate::world::World;
 
+pub const PREVIEW_LENGTH : f32 = 5.0;
+pub enum GameState {
+	On,
+	Preview(f32),
+	Over,
+}
 pub struct Gameplay {
 	pub objs : ObjectSet<Gobj>,
 	pub player_id : GameObjectID,
 	pub rd : RenderData,
 	pub world : Rc<RefCell<World>>,
 	pub spawn_queue : Rc<RefCell<Vec<Gobj>>>,
+	pub state : GameState,
+	load_timer : f32,
 }
 impl Gameplay {
-	pub fn new() -> Self {
+	pub fn new(hive : Rc<RefCell<Hive>>) -> Self {
 		Gameplay {
 			objs: ObjectSet::new(),
 			player_id: 0,
 			rd: RenderData::new(),
-			world : Rc::new(RefCell::new(World::new())),
+			world : Rc::new(RefCell::new(World::new(hive))),
 			spawn_queue: Rc::new(RefCell::new(Vec::new())),
+			state: GameState::On,
+			load_timer: 1.,
 		}
+	}
+
+	pub fn lose(&mut self) {
+		self.state = GameState::Over;
+	}
+	pub fn restart(&mut self) {
+		todo!();
+		self.state = GameState::On;
 	}
 	pub fn player_pos(&self) -> Vec2 {
 		match self.objs.get_obj(self.player_id) {
 			Gobj::Player(_, _, pos, _, _, _) => *pos,
 			_ => panic!("player_id ({}) not pointing to a Player!", self.player_id)
 		}
+	}
+	fn set_player_pos(&mut self, p : &Vec2) {
+		match self.objs.get_obj_mut(self.player_id) {
+			Gobj::Player(_, _, pos, _, _, _) => *pos = *p,
+			_ => panic!("player_id ({}) not pointing to a Player!", self.player_id)
+		}
+	}
+	fn render_bg_tex(&self) {
+		const TS : f32 = 128.;
+		const TL : u8 = 8;
+		let mut tp = self.player_pos();
+		tp.x %= TS;
+		tp.y %= TS;
+		let mut x = -tp.x - TS;
+		while x < W {
+			let mut y = -tp.y - TS;
+			while y < H {
+				draw_texture_ex(self.rd.assets.clone().unwrap().tex_sand, x, y, Color::from_rgba(TL,TL,TL,255),
+					DrawTextureParams {
+						dest_size: Some(vec2(TS, TS)),
+						..DrawTextureParams::default()
+					});
+				y += TS;
+			}
+			x += TS;
+		}
+	}
+	fn render_map_tex(&self) {
+		let mapp = self.rd.cast_pos(&MAP_TOPLEFT);
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_map, mapp.x, mapp.y, WHITE,
+			DrawTextureParams {
+				dest_size: Some(MAP_DIMS*self.rd.scale_unit(1.)),
+				..DrawTextureParams::default()
+			});
+	}
+	fn render_map_vignette(&self, tl : &Vec2, map_dims : &Vec2, scale_factor : f32) {
+		let map_vignette_dims = *map_dims*self.rd.scale_unit(scale_factor);
+		let map_vignette_pos = self.rd.cast_pos(&(
+				*tl + *map_dims/2.
+				- *map_dims*scale_factor/2.
+				)
+			);
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, WHITE,
+			DrawTextureParams {
+				dest_size: Some(map_vignette_dims),
+				..DrawTextureParams::default()
+			});
 	}
 }
 impl Scene for Gameplay {
@@ -44,31 +110,122 @@ impl Scene for Gameplay {
 				)
 			);
 		self.rd.init(a);
-		self.world.borrow_mut().init(a);
+		self.world.borrow_mut().init(&a.tex_map, &MAP_DIMS);
 	}
-    fn update(&mut self, _q : &mut SignalQueue) {
+	fn load(&mut self) {
+		self.load_timer = 1.;
+	}
+    fn update(&mut self, q : &mut SignalQueue) {
+		use GameState::*;
 		let d = get_frame_time().min(0.2).max(0.001);
 		self.rd.d = d;
+		match self.state {
+			On => {
+				self.world.borrow_mut().hive.borrow_mut().update(d);
+				self.objs.update();
+				self.world.borrow_mut().marker.update(d);
+				self.world.borrow_mut().food.update(d);
 
-        self.objs.update();
-		self.world.borrow_mut().marker.update(d);
-		self.world.borrow_mut().food.update(d);
-		if !self.world.borrow().marker
-			.local_markers(&HOME_POS, &Vec2::ZERO, &|_| true)
-				.iter()
-				.any(|m| *m.pos() == HOME_POS) {
-			self.world.borrow_mut().marker.create_marker(Marker::Home(HOME_POS, HOME_MARKER_LIFE), self.spawn_queue.clone());
+				if self.world.borrow().hive.borrow().lost() {
+					self.lose();
+				}
+
+				// TODO remove; debug condition
+				if self.world.borrow().hive.borrow_mut().did_player_give()
+					|| is_key_pressed(KeyCode::P)
+				{
+					self.state = Preview(PREVIEW_LENGTH);
+				}
+				if self.load_timer >= 0.0 {
+					self.load_timer -= d;
+				}
+				if self.player_pos().distance(HOME_POS) < PLAYER_PICKUP_RANGE
+					&& self.load_timer <= 0.0 {
+					q.send(Signal::SetScene(0));
+					self.set_player_pos(&(HOME_POS+vec2(0.0, ANT_HOME_DEPOSIT_RANGE)));
+				}
+
+				for obj in self.spawn_queue.borrow().iter() {
+					self.objs.create(obj.clone());
+				}
+				self.spawn_queue.borrow_mut().clear();
+				if !self.world.borrow().marker
+					.local_markers(&HOME_POS, &Vec2::ZERO, &|_| true)
+						.iter()
+						.any(|m| *m.pos() == HOME_POS) {
+					self.world.borrow_mut().marker.create_marker(Marker::Home(HOME_POS, HOME_MARKER_LIFE), self.spawn_queue.clone());
+				}
+
+				self.rd.camera_pos = lerp(
+					self.rd.camera_pos,
+					self.player_pos() + get_ivn()*10.,
+					d*6.);
+				self.rd.zoom = 1.0;
+			},
+			Preview(_) => {
+				self.rd.camera_pos = lerp(
+					self.rd.camera_pos,
+					self.player_pos(),
+					d*6.);
+				if let Preview(ref mut left) = self.state {
+					*left -= d;
+					if *left < 0.0 { self.state = On; }
+				}
+			},
+			Over => {
+				if is_key_pressed(KeyCode::R) {
+					self.restart();
+				}
+			}
 		}
-		for obj in self.spawn_queue.borrow().iter() {
-			self.objs.create(obj.clone());
+
+		// TODO remove; debug
+		self.debug_update();
+    }
+
+    fn render(&mut self, _q : &mut SignalQueue) {
+		use GameState::*;
+		match self.state {
+			On => {
+				self.render_bg_tex();
+				self.render_map_tex();
+
+				self.world.borrow().marker.render(&self.rd);
+				self.world.borrow().food.render(&self.rd);
+				self.objs.render(&self.rd);
+				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
+			},
+			Preview(left) => {
+				clear_background(COL_BG);
+				self.render_map_tex();
+				let a = 1.0 - left/PREVIEW_LENGTH;
+				draw_rectangle(0.,0.,W,H,Color{r: COL_BG.r, g: COL_BG.g, b: COL_BG.b, a});
+
+				self.world.borrow().marker.render(&self.rd);
+				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
+
+				self.debug_render();
+				self.rd.zoom = lerp(self.rd.zoom, 0.1, self.rd.d);
+			},
+			Over => {
+				self.world.borrow().marker.render(&self.rd);
+				self.world.borrow().food.render(&self.rd);
+				self.objs.render(&self.rd);
+				self.rd.zoom = lerp(self.rd.zoom, 0.08, self.rd.d);
+
+				quick_text("GAME OVER", vec2(W/2.0, H/2.0), RED);
+				quick_text("[R] to restart", vec2(W/2.0, H/2.0+20.), RED);
+			}
 		}
-		self.spawn_queue.borrow_mut().clear();
 
-		self.rd.camera_pos = lerp(
-			self.rd.camera_pos,
-			self.player_pos() + get_ivn()*10.,
-			d*6.);
-
+		// TODO remove; debug
+		self.debug_render();
+		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
+    }
+}
+#[allow(dead_code)]
+impl Gameplay {
+	fn debug_update(&mut self) {
 		let mp = mouse_pos_scaled_rd(&self.rd);
 		if is_mouse_button_pressed(MouseButton::Left) {
 			self.objs.create(Gobj::new_particles(
@@ -116,63 +273,8 @@ impl Scene for Gameplay {
 					);
 			}
 		}
-    }
-
-    fn render(&mut self, _q : &mut SignalQueue) {
-		clear_background(COL_BG);
-		const TS : f32 = 128.;
-		const TL : u8 = 8;
-		let mut tp = self.player_pos();
-		tp.x %= TS;
-		tp.y %= TS;
-		let mut x = -tp.x - TS;
-		while x < W {
-			let mut y = -tp.y - TS;
-			while y < H {
-				draw_texture_ex(self.rd.assets.clone().unwrap().tex_sand, x, y, Color::from_rgba(TL,TL,TL,255),
-					DrawTextureParams {
-						dest_size: Some(vec2(TS, TS)),
-						..DrawTextureParams::default()
-					});
-				y += TS;
-			}
-			x += TS;
-		}
-
-		let mapp = self.rd.cast_pos(&MAP_TOPLEFT);
-		draw_texture_ex(self.rd.assets.clone().unwrap().tex_map, mapp.x, mapp.y, WHITE,
-			DrawTextureParams {
-				dest_size: Some(MAP_DIMS*self.rd.scale_unit(1.)),
-				..DrawTextureParams::default()
-			});
-
-		self.world.borrow().marker.render(&self.rd);
-		self.world.borrow().food.render(&self.rd);
-        self.objs.render(&self.rd);
-
-		let map_vignette_scale = 2.;
-		let map_vignette_dims = MAP_DIMS*self.rd.scale_unit(map_vignette_scale);
-		let map_vignette_pos = self.rd.cast_pos(&(
-				MAP_TOPLEFT + MAP_DIMS/2.
-				- MAP_DIMS*map_vignette_scale/2.
-				)
-			);
-		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, WHITE,
-			DrawTextureParams {
-				dest_size: Some(map_vignette_dims),
-				..DrawTextureParams::default()
-			});
-
-		// TODO remove; debug
-		self.debug_render();
-		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
-    }
-}
-#[allow(dead_code)]
-impl Gameplay {
+	}
 	fn debug_render(&mut self) {
-		self.rd.zoom = lerp(self.rd.zoom, if is_key_down(KeyCode::LeftShift) { 0.10 } else { 1.0 }, get_frame_time()*5.);
-
 		if is_key_down(KeyCode::C) { self.render_debug_map_col() }
 		let hcp = self.rd.cast_pos(&HOME_POS);
 		draw_circle(hcp.x, hcp.y, self.rd.scale_unit(ANT_HOME_DEPOSIT_RANGE), DARKBLUE);

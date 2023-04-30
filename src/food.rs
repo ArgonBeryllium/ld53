@@ -7,14 +7,18 @@ use crate::{game_objects::RenderData, prelude::{COL_MARKER_FOOD, random_angle}, 
 pub struct Food {
 	pub pos : Vec2,
 	pub size : f32,
+	pub value : f32,
 	pub angle : f32,
 	pub index : usize,
 }
 impl Food {
 	pub fn new(pos : &Vec2) -> Self {
+		let value = rand::gen_range(1., 5.);
+		let size = value*PLAYER_RAD;
 		Food {
 			pos: *pos,
-			size: rand::gen_range(PLAYER_RAD*1.5, PLAYER_RAD*5.),
+			size,
+			value,
 			angle: random_angle(),
 			index: rand::gen_range(0, 4),
 		}

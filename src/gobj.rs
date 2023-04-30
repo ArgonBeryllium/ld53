@@ -12,7 +12,7 @@ use crate::ants::*;
 
 const PLAYER_SPEED : f32 = ANT_SPEED*3.;
 pub const PLAYER_RAD : f32 = 4.;
-const PLAYER_PICKUP_RANGE : f32 = PLAYER_RAD * 2.0;
+pub const PLAYER_PICKUP_RANGE : f32 = PLAYER_RAD * 2.0;
 
 const ANT_SPEED : f32 = 15.0;
 pub const ANT_RAD : f32 = PLAYER_RAD * 0.8;
@@ -142,7 +142,9 @@ impl GameObject for Gobj {
 				}
 				else if carried_food.is_some()
 					&& pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
-					// TODO deposit
+					world.borrow_mut()
+						.hive.borrow_mut()
+						.deposit(true, carried_food.clone().unwrap().value);
 					*carried_food = None;
 				}
 				if carried_food.is_some() {
@@ -271,7 +273,9 @@ impl GameObject for Gobj {
 					GoHome(food, m, time_left_until_next_angle, a, avel) => {
 						next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
 						if pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
-							// TODO deposit
+							world.borrow_mut()
+								.hive.borrow_mut()
+								.deposit(false, food.value);
 							Wander(0., random_angle(), 0.)
 						}
 						else {

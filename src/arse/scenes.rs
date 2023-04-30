@@ -3,6 +3,8 @@ use crate::Assets;
 
 #[allow(unused_variables)]
 pub trait Scene {
+	fn load(&mut self) {}
+	fn unload(&mut self) {}
 	fn init(&mut self, a : &Assets) {}
 	fn update(&mut self, q : &mut SignalQueue);
 	fn render(&mut self, q : &mut SignalQueue);
@@ -27,13 +29,16 @@ impl SceneManager {
 	}
 	pub fn get_active_index(&self) -> usize { self.active_index }
 	pub fn set_active_scene(&mut self, i : usize) {
+		self.scenes[self.active_index].unload();
 		self.active_index = i;
+		self.scenes[self.active_index].load();
 	}
 
 	pub fn init(&mut self, assets : &Assets) {
 		for s in self.scenes.iter_mut() {
 			s.init(assets)
 		}
+		self.scenes[self.active_index].load();
 	}
 	pub fn update(&mut self) -> SignalQueue {
 		let mut q = SignalQueue::new();

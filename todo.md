@@ -1,9 +1,6 @@
+# no time to add any features, time to polish this turd
 ## Necessary
-- home
-	- [x] static access
-	- [ ] depositing pellets
-		- [ ] goal
-		- [ ] indicator
+- [ ] lose state
 - dangers
 	- [ ] wandering
 	- [ ] eating ants
@@ -14,6 +11,7 @@
 - ant anim
 
 ## Nice to have
+- faders
 - replay
 - sound
 	- [ ] danger cues
@@ -34,5 +32,10 @@
 	- [x] mini view
 	- [x] texture
 - food textures
+- home
+	- [x] static access
+	- [x] depositing pellets
+		- [ ] goal : don't die idk
+		- [x] indicator
 
 - pheromone particles
