@@ -65,8 +65,10 @@ impl MarkerWorld {
 		let k = self.pos_to_key(&p);
 
 		let mut out = Vec::new();
-		for x in (k.0-1)..(k.0+1) {
-			for y in (k.1-1)..(k.1+1) {
+		// every day, I am reminded of my severe mental disability
+		// (the range wasn't inclusive)
+		for x in (k.0-1)..=(k.0+1) {
+			for y in (k.1-1)..=(k.1+1) {
 				if !self.markers.contains_key(&(x, y)) {
 					continue;
 				}

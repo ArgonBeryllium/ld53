@@ -190,7 +190,7 @@ impl GameObject for Gobj {
 				*target_change_cooldown -= d;
 				if *target_change_cooldown < 0. {
 					*target = next_target;
-					*target_change_cooldown = 0.1;//ANT_MARKER_DIST/ANT_SPEED;
+					*target_change_cooldown = ANT_MARKER_DIST/ANT_SPEED;
 				}
 
 				if pos != target {
@@ -260,11 +260,11 @@ impl GameObject for Gobj {
 
 				draw_circle(pos.x, pos.y, ANT_RAD, col);
 				draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
-				for m in home_markers {
-					draw_line(pos.x, pos.y, m.pos().x - co.x, m.pos().y - co.y, 1., BLACK);
-				}
 				if closest.is_some() {
 					draw_line(pos.x, pos.y, closest.unwrap().pos().x-co.x, closest.unwrap().pos().y-co.y, 2., YELLOW);
+				}
+				for m in home_markers {
+					draw_line(pos.x, pos.y, m.pos().x - co.x, m.pos().y - co.y, 1., col);
 				}
 			},
 			Scout(_, _, pos, target, _, _) => {
