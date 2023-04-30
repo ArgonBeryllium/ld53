@@ -57,7 +57,7 @@ impl Gameplay {
 					)
 				));
 		}
-		for _ in 0..1000 {
+		for _ in 0..200 {
 			self.update(&mut q);
 		}
 		match self.state {
