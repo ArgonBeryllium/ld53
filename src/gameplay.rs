@@ -21,7 +21,7 @@ impl Gameplay {
 			objs: ObjectSet::new(),
 			player_id: 0,
 			rd: RenderData::new(),
-			markers: Rc::new(RefCell::new(MarkerWorld::new(85.))),
+			markers: Rc::new(RefCell::new(MarkerWorld::new(55.))),
 			food: Rc::new(RefCell::new(FoodWorld::new(42.))),
 		}
 	}

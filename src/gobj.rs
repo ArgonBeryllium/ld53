@@ -67,7 +67,7 @@ impl GameObject for Gobj {
 				let wander = |time_left_until_next_angle : &mut f32, a : &mut f32, avel : &mut f32, target : &mut Vec2| {
 						let rtarget = *target - *pos;
 						let angle_target = rtarget.y.atan2(rtarget.x);
-						let angle_current = lerp(angle_target, *a, ANT_WANDER_TURN_SPEED*d);
+						let angle_current = angle_lerp(angle_target, *a, ANT_WANDER_TURN_SPEED*d);
 
 						*target = *pos+vec2(angle_current.cos(), angle_current.sin());
 						*target += vec2(avel.cos(), avel.sin())*ANT_TURN_SPEED*d;
@@ -137,7 +137,7 @@ impl GameObject for Gobj {
 					GetFood(food_pos) => {
 						next_target = *food_pos;
 						if closest_food_id.is_none() {
-							Wander(0., 0., 0.)
+							Wander(0., random_angle(), 0.)
 						} else {
 							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
 							if food_pos.distance(*pos) < ANT_FOOD_PICKUP_RANGE {
@@ -146,7 +146,7 @@ impl GameObject for Gobj {
 									.take_food(closest_food_id.unwrap());
 								match f {
 									Some(f) => GoHome(f, closest_marker_home, 0.,0.,0.),
-									None => Wander(0.,0.,0.)
+									None => Wander(0.,random_angle(),0.)
 								}
 							} else {
 								state.clone()
@@ -174,7 +174,7 @@ impl GameObject for Gobj {
 					GoHome(food, m, time_left_until_next_angle, a, avel) => {
 						if pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
 							// TODO deposit
-							Wander(0., 0., 0.)
+							Wander(0., random_angle(), 0.)
 						}
 						else {
 							next_marker = Some(Marker::Food(*pos, FOOD_MARKER_LIFE));
@@ -228,7 +228,7 @@ impl GameObject for Gobj {
 		let co = rd.camera_offset();
 		match self {
 			Player(pos) => draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, RED),
-			Ant(mw, _fw, pos, target, tcc, _lmp, state) => {
+			Ant(_mw, _fw, pos, target, tcc, _lmp, state) => {
 				let pos = *pos - co;
 				let target = *target - co;
 				let col = match state {
