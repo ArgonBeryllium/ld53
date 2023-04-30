@@ -229,26 +229,6 @@ impl GameObject for Gobj {
 		match self {
 			Player(pos) => draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, RED),
 			Ant(mw, _fw, pos, target, tcc, _lmp, state) => {
-				let heading = *target - *pos;
-				let heading =
-					if heading.length() != 0.0 { heading.normalize() }
-					else { heading };
-				let home_markers : Vec<_> = mw.borrow()
-					.local_markers(
-						pos,
-						&heading,
-						&|m| match *m { Marker::Home(..) => true, _ => false })
-					.iter()
-					.map(|m| m.clone()).collect();
-				let hmc = home_markers.clone();
-				let closest = hmc
-					.iter()
-					.filter(|m| m.pos().distance(*pos) > ANT_MARKER_DIST)
-					.min_by(|a, b| match a.pos().distance(HOME_POS) < b.pos().distance(HOME_POS) {
-							true => std::cmp::Ordering::Less,
-							false => std::cmp::Ordering::Greater,
-						}
-					);
 				let pos = *pos - co;
 				let target = *target - co;
 				let col = match state {
@@ -260,12 +240,6 @@ impl GameObject for Gobj {
 
 				draw_circle(pos.x, pos.y, ANT_RAD, col);
 				draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
-				if closest.is_some() {
-					draw_line(pos.x, pos.y, closest.unwrap().pos().x-co.x, closest.unwrap().pos().y-co.y, 2., YELLOW);
-				}
-				for m in home_markers {
-					draw_line(pos.x, pos.y, m.pos().x - co.x, m.pos().y - co.y, 1., col);
-				}
 			},
 			Scout(_, _, pos, target, _, _) => {
 				let pos = *pos - co;
