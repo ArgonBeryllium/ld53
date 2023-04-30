@@ -30,7 +30,7 @@ impl Gameplay {
 	}
 	pub fn player_pos(&self) -> Vec2 {
 		match self.objs.get_obj(self.player_id) {
-			Gobj::Player(_, _, _, pos, _, _) => *pos,
+			Gobj::Player(_, _, _, pos, _, _, _) => *pos,
 			_ => panic!("player_id ({}) not pointing to a Player!", self.player_id)
 		}
 	}

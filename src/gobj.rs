@@ -1,3 +1,4 @@
+use crate::food::Food;
 use crate::food::FoodWorld;
 use crate::markers::Marker;
 use crate::markers::MarkerWorld;
@@ -35,7 +36,7 @@ pub enum ParticleStyle {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Gobj {
-	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2),
+	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2, Option<Food>),
 	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
 	Particles(f32, f32, Color, Vec2, ParticleStyle, Vec<Vec2>, Vec<Vec2>, Vec<f32>),
 }
@@ -44,7 +45,7 @@ impl Gobj {
 		Gobj::Ant(sq, mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
 	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		Gobj::Player(sq, mw, fw, *pos, None, *pos)
+		Gobj::Player(sq, mw, fw, *pos, None, *pos, None)
 	}
 	pub fn new_particles(pos : &Vec2, count : usize, life : f32, radius : f32, col : Color, style : ParticleStyle) -> Self {
 		let mut positions = Vec::new();
@@ -73,7 +74,7 @@ impl GameObject for Gobj {
 		let d = get_frame_time();
 		use Gobj::*;
 		match self {
-			Player(spawn_queue, marker_world, _food_world, pos, marker_type, last_marker_pos) => {
+			Player(spawn_queue, marker_world, food_world, pos, marker_type, last_marker_pos, carried_food) => {
 				if pos.distance(*last_marker_pos) > ANT_MARKER_DIST {
 					match marker_type {
 						None => (),
@@ -93,6 +94,26 @@ impl GameObject for Gobj {
 				}
 				let iv = get_ivn();
 				*pos += iv*d*PLAYER_SPEED;
+
+				let closest_food_id = food_world.borrow().find_food(pos, &iv);
+				let get_closest_food_pos = ||
+					food_world
+					.borrow()
+					.get_food(closest_food_id.unwrap())
+					.expect("Closest food no longer exists")
+					.pos;
+				if closest_food_id.is_some()
+					&& carried_food.is_none()
+					&& get_closest_food_pos().distance(*pos) < ANT_FOOD_PICKUP_RANGE {
+					*carried_food = food_world
+						.borrow_mut().
+						take_food(closest_food_id.unwrap());
+				}
+				else if carried_food.is_some()
+					&& pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
+					// TODO deposit
+					*carried_food = None;
+				}
 				true
 			},
 			Ant(spawn_queue, marker_world, food_world, pos, target, target_change_cooldown, last_marker_pos, state) => {
@@ -269,21 +290,24 @@ impl GameObject for Gobj {
 		use Gobj::*;
 		let co = rd.camera_offset();
 		match self {
-			Player(_, _, _, pos, marker_type, _) => {
+			Player(_, _, _, pos, marker_type, _, carried_food) => {
 				let col = match marker_type {
 					None => GRAY,
-					Some(Marker::Home(..)) => BLUE,
-					Some(Marker::Food(..)) => GREEN,
+					Some(Marker::Home(..)) => COL_MARKER_HOME,
+					Some(Marker::Food(..)) => COL_MARKER_FOOD,
 				};
 				draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, col);
+				if carried_food.is_some() {
+					draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD*0.7, GREEN);
+				}
 			},
 			Ant(_ow, _mw, _fw, pos, _target, _tcc, _lmp, state) => {
 				let pos = *pos - co;
 				let col = match state {
-					AntState::Wander(..) => BLUE,
-					AntState::Follow(..) => PURPLE,
+					AntState::Wander(..) => COL_MARKER_HOME,
+					AntState::Follow(..) => LIGHTGRAY,
 					AntState::GetFood(..) => DARKGREEN,
-					AntState::GoHome(..) => GREEN,
+					AntState::GoHome(..) => COL_MARKER_FOOD,
 				};
 
 				draw_circle(pos.x, pos.y, ANT_RAD, col);
