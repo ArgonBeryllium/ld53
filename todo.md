@@ -8,16 +8,10 @@
 	- [ ] wandering
 	- [ ] eating ants
 		- [ ] lose state, restart
-- map
-	- [x] bounds
-	- [x] geometry w/collisions
-	- [x] mini view
-	- [ ] texture
 - periodic food spawning
 
 - ant texture
 - ant anim
-- food textures
 
 ## Nice to have
 - replay
@@ -34,5 +28,11 @@
 	- [x] dissipation
 	- [x] following
 - player pheromones (BONUS: agents getting stuck is now a gameplay mechanic lmao)
+- map
+	- [x] bounds
+	- [x] geometry w/collisions
+	- [x] mini view
+	- [x] texture
+- food textures
 
 - pheromone particles

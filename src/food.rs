@@ -1,21 +1,35 @@
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
-use crate::game_objects::RenderData;
+use crate::{game_objects::RenderData, prelude::{COL_MARKER_FOOD, random_angle}, gobj::PLAYER_RAD};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Food {
-	pub pos : Vec2
+	pub pos : Vec2,
+	pub size : f32,
+	pub angle : f32,
+	pub index : usize,
 }
 impl Food {
 	pub fn new(pos : &Vec2) -> Self {
 		Food {
-			pos: *pos
+			pos: *pos,
+			size: rand::gen_range(PLAYER_RAD*1.5, PLAYER_RAD*5.),
+			angle: random_angle(),
+			index: rand::gen_range(0, 4),
 		}
 	}
-	fn render(&self, rd : &RenderData) {
-		let pos = self.pos - rd.camera_offset();
-		draw_rectangle(pos.x, pos.y, 5., 5., GREEN)
+	pub fn render(&self, rd : &RenderData) {
+		let pos = rd.cast_pos(&self.pos);
+		let dim = Vec2::ONE*rd.scale_unit(self.size);
+		draw_texture_ex(rd.assets.clone().unwrap().tex_sugars[self.index],
+			pos.x - dim.x/2., pos.y - dim.y/2.,
+			COL_MARKER_FOOD,
+			DrawTextureParams {
+				dest_size: Some(dim),
+				rotation: self.angle,
+				..DrawTextureParams::default()
+			})
 	}
 }
 

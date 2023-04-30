@@ -48,6 +48,8 @@ impl Scene for Gameplay {
 	}
     fn update(&mut self, _q : &mut SignalQueue) {
 		let d = get_frame_time().min(0.2).max(0.001);
+		self.rd.d = d;
+
         self.objs.update();
 		self.world.borrow_mut().marker.update(d);
 		self.world.borrow_mut().food.update(d);

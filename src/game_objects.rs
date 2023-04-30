@@ -7,6 +7,7 @@ pub struct RenderData {
 	pub camera_pos : Vec2,
 	pub zoom : f32,
 	pub assets : Option<Assets>,
+	pub d : f32,
 }
 impl RenderData {
 	pub fn new() -> Self {
@@ -14,6 +15,7 @@ impl RenderData {
 			camera_pos: Vec2::ZERO,
 			zoom: 1.0,
 			assets: None,
+			d: 0.1,
 		}
 	}
 	pub fn init(&mut self, a : &Assets) {

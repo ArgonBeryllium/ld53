@@ -11,7 +11,7 @@ use crate::prelude::*;
 use crate::ants::*;
 
 const PLAYER_SPEED : f32 = ANT_SPEED*3.;
-const PLAYER_RAD : f32 = 4.;
+pub const PLAYER_RAD : f32 = 4.;
 const PLAYER_PICKUP_RANGE : f32 = PLAYER_RAD * 2.0;
 
 const ANT_SPEED : f32 = 15.0;
@@ -144,6 +144,14 @@ impl GameObject for Gobj {
 					&& pos.distance(HOME_POS) < ANT_HOME_DEPOSIT_RANGE {
 					// TODO deposit
 					*carried_food = None;
+				}
+				if carried_food.is_some() {
+					let cfp = carried_food.clone().unwrap().pos;
+					carried_food.as_mut().unwrap().pos = lerp(
+						cfp,
+						*pos + get_ivn()*PLAYER_RAD,
+						d*20.
+					);
 				}
 				true
 			},
@@ -342,11 +350,11 @@ impl GameObject for Gobj {
 					Some(Marker::Home(..)) => COL_MARKER_HOME,
 					Some(Marker::Food(..)) => COL_MARKER_FOOD,
 				};
-				let pos = rd.cast_pos(pos);
+				let pos_ = rd.cast_pos(pos);
 				let s = rd.scale_unit(PLAYER_RAD);
-				draw_circle(pos.x, pos.y, s, col);
+				draw_circle(pos_.x, pos_.y, s, col);
 				if carried_food.is_some() {
-					draw_circle(pos.x, pos.y, s*0.7, GREEN);
+					carried_food.clone().unwrap().render(rd);
 				}
 			},
 			Ant(_sq, _w, pos, _target, _tcc, _lmp, state) => {
