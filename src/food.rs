@@ -109,13 +109,13 @@ impl FoodWorld {
 		self.food.retain(|_, v| v.len() != 0);
 	}
 	pub fn render(&self, rd : &RenderData) {
-		for (k, v) in &self.food {
-			let pos = vec2(
-				k.0 as f32 * self.grid_size,
-				k.1 as f32 * self.grid_size
-			);
-			let pos = pos - rd.camera_offset();
-			draw_rectangle_lines(pos.x, pos.y, self.grid_size, self.grid_size, 2., PINK);
+		for (_k, v) in &self.food {
+			//let pos = vec2(
+			//	k.0 as f32 * self.grid_size,
+			//	k.1 as f32 * self.grid_size
+			//);
+			//let pos = pos - rd.camera_offset();
+			//draw_rectangle_lines(pos.x, pos.y, self.grid_size, self.grid_size, 2., PINK);
 			for f in v {
 				f.1.render(rd);
 			}

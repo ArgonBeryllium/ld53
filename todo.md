@@ -5,12 +5,12 @@
 	- [ ] wandering
 	- [ ] eating ants
 		- [ ] lose state, restart
-- periodic food spawning
 
 - ant texture
 - ant anim
 
 ## Nice to have
+- improve player controls
 - faders
 - replay
 - sound
@@ -37,5 +37,6 @@
 	- [x] depositing pellets
 		- [ ] goal : don't die idk
 		- [x] indicator
+- periodic food spawning
 
 - pheromone particles

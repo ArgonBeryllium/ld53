@@ -43,7 +43,7 @@ impl Nest {
 				- *map_dims*scale_factor/2.
 				)
 			);
-		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, WHITE,
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, BLACK,
 			DrawTextureParams {
 				dest_size: Some(map_vignette_dims),
 				..DrawTextureParams::default()

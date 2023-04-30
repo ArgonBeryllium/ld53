@@ -12,6 +12,8 @@ use crate::world::MAP_TOPLEFT;
 use crate::world::World;
 
 pub const PREVIEW_LENGTH : f32 = 5.0;
+pub const FOOD_TIMER_LOW : f32 = 15.0;
+pub const FOOD_TIMER_HIGH : f32 = 36.0;
 pub enum GameState {
 	On,
 	Preview(f32),
@@ -25,6 +27,7 @@ pub struct Gameplay {
 	pub spawn_queue : Rc<RefCell<Vec<Gobj>>>,
 	pub state : GameState,
 	load_timer : f32,
+	food_timer: f32,
 }
 impl Gameplay {
 	pub fn new(hive : Rc<RefCell<Hive>>) -> Self {
@@ -36,9 +39,54 @@ impl Gameplay {
 			spawn_queue: Rc::new(RefCell::new(Vec::new())),
 			state: GameState::On,
 			load_timer: 1.,
+			food_timer: 0.,
 		}
 	}
 
+	pub fn presim(&mut self) {
+		let mut q = SignalQueue::new();
+
+		for _ in 0..100 {
+			self.objs.create(Gobj::new_ant(
+					self.spawn_queue.clone(),
+					self.world.clone(),
+					&random_ring_point(
+						&mouse_pos_scaled_rd(&self.rd),
+						ANT_RAD,
+						ANT_RAD*3.
+					)
+				));
+		}
+		for _ in 0..1000 {
+			self.update(&mut q);
+		}
+		match self.state {
+			GameState::Over => self.restart(),
+			_ => ()
+		}
+	}
+	pub fn spawn_food(&mut self) {
+		for _ in 0..3 {
+			let mut place;
+			loop {
+				place = random_ring_point(&HOME_POS, MAP_DIMS.x*0.1, MAP_DIMS.x/2.);
+				if !self.world.borrow().is_collision(&place)
+					&& place.distance(self.player_pos()) > W {
+						break;
+				}
+			}
+			for _ in 0..rand::gen_range(5, 25) {
+				self.world.borrow_mut().food.put_food(Food::new(
+						&random_ring_point(
+							&place,
+							ANT_RAD,
+							ANT_RAD*6.
+							)
+						)
+					);
+			}
+		}
+	}
 	pub fn lose(&mut self) {
 		self.state = GameState::Over;
 	}
@@ -93,7 +141,7 @@ impl Gameplay {
 				- *map_dims*scale_factor/2.
 				)
 			);
-		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, WHITE,
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, map_vignette_pos.x, map_vignette_pos.y, BLACK,
 			DrawTextureParams {
 				dest_size: Some(map_vignette_dims),
 				..DrawTextureParams::default()
@@ -111,6 +159,8 @@ impl Scene for Gameplay {
 			);
 		self.rd.init(a);
 		self.world.borrow_mut().init(&a.tex_map, &MAP_DIMS);
+
+		self.presim();
 	}
 	fn load(&mut self) {
 		self.load_timer = 1.;
@@ -130,10 +180,14 @@ impl Scene for Gameplay {
 					self.lose();
 				}
 
-				// TODO remove; debug condition
-				if self.world.borrow().hive.borrow_mut().did_player_give()
-					|| is_key_pressed(KeyCode::P)
-				{
+				if self.food_timer >= 0. {
+					self.food_timer -= d;
+				} else if self.world.borrow().hive.borrow().state_as_float() < 0.9 {
+					self.spawn_food();
+					self.food_timer = rand::gen_range(FOOD_TIMER_LOW, FOOD_TIMER_HIGH);
+				}
+
+				if self.world.borrow().hive.borrow_mut().did_player_give() {
 					self.state = Preview(PREVIEW_LENGTH);
 				}
 				if self.load_timer >= 0.0 {
@@ -189,8 +243,6 @@ impl Scene for Gameplay {
 			On => {
 				self.render_bg_tex();
 				self.render_map_tex();
-
-				self.world.borrow().marker.render(&self.rd);
 				self.world.borrow().food.render(&self.rd);
 				self.objs.render(&self.rd);
 				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
@@ -198,9 +250,10 @@ impl Scene for Gameplay {
 			Preview(left) => {
 				clear_background(COL_BG);
 				self.render_map_tex();
-				let a = 1.0 - left/PREVIEW_LENGTH;
-				draw_rectangle(0.,0.,W,H,Color{r: COL_BG.r, g: COL_BG.g, b: COL_BG.b, a});
+				//let a = 1.0 - left/PREVIEW_LENGTH;
+				//draw_rectangle(0.,0.,W,H,Color{r: COL_BG.r, g: COL_BG.g, b: COL_BG.b, a});
 
+				self.objs.render(&self.rd);
 				self.world.borrow().marker.render(&self.rd);
 				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
 
@@ -208,9 +261,13 @@ impl Scene for Gameplay {
 				self.rd.zoom = lerp(self.rd.zoom, 0.1, self.rd.d);
 			},
 			Over => {
+				clear_background(COL_BG);
+				self.render_map_tex();
 				self.world.borrow().marker.render(&self.rd);
 				self.world.borrow().food.render(&self.rd);
 				self.objs.render(&self.rd);
+				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
+
 				self.rd.zoom = lerp(self.rd.zoom, 0.08, self.rd.d);
 
 				quick_text("GAME OVER", vec2(W/2.0, H/2.0), RED);
@@ -226,6 +283,9 @@ impl Scene for Gameplay {
 #[allow(dead_code)]
 impl Gameplay {
 	fn debug_update(&mut self) {
+		if is_key_down(KeyCode::LeftShift) {
+			self.rd.zoom = 0.5;
+		}
 		let mp = mouse_pos_scaled_rd(&self.rd);
 		if is_mouse_button_pressed(MouseButton::Left) {
 			self.objs.create(Gobj::new_particles(
@@ -262,16 +322,7 @@ impl Gameplay {
 			}
 		}
 		if is_key_pressed(KeyCode::Key2) {
-			for _ in 0..20 {
-				self.world.borrow_mut().food.put_food(Food::new(
-						&random_ring_point(
-							&mouse_pos_scaled_rd(&self.rd),
-							ANT_RAD,
-							ANT_RAD*3.
-							)
-						)
-					);
-			}
+			self.spawn_food();
 		}
 	}
 	fn debug_render(&mut self) {

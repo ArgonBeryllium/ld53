@@ -4,7 +4,7 @@ use macroquad::{prelude::{Vec2, RED, vec2, WHITE}, shapes::{draw_rectangle_lines
 use crate::{game_objects::RenderData, gobj::{FOOD_MARKER_LIFE, HOME_MARKER_LIFE, ANT_RAD, Gobj, ParticleStyle}, resources::*};
 
 pub const MAX_HOME_MARKERS_PER_CELL : usize = 14;
-pub const MARKER_RENDER_RAD : f32 = ANT_RAD*3.5;
+pub const MARKER_RENDER_RAD : f32 = ANT_RAD*1.0;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Marker {
 	Home(Vec2, f32),
@@ -150,7 +150,6 @@ impl MarkerWorld {
 	}
 	#[allow(unreachable_code)]
 	pub fn render(&self, rd : &RenderData) {
-		return;
 		for (_, v) in &self.markers {
 			for p in v {
 				let a = match p {
@@ -161,7 +160,7 @@ impl MarkerWorld {
 					Marker::Home(..) => COL_MARKER_HOME,
 					Marker::Food(..) => COL_MARKER_FOOD,
 				};
-				let pos = *p.pos() - rd.camera_offset();
+				let pos = rd.cast_pos(p.pos());
 				draw_texture_ex(
 					rd.assets.clone().unwrap().tex_fuzzy_0,
 					pos.x - a*MARKER_RENDER_RAD*0.5,

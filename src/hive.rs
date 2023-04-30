@@ -24,6 +24,7 @@ impl Hive {
 			self.player_gave = true;
 		}
 		self.life += value*5.;
+		self.life = self.life.max(HIVE_MAX_LIFE);
 	}
 	pub fn update(&mut self, d : f32) {
 		self.life -= d;
@@ -42,4 +43,5 @@ impl Hive {
 			).min((a.tex_hive_food.len()-1) as f32) as usize;
 		a.tex_hive_food[i]
 	}
+	pub fn state_as_float(&self) -> f32 { self.life / HIVE_MAX_LIFE }
 }
