@@ -54,8 +54,8 @@ impl FoodWorld {
 		let k = self.pos_to_key(&p);
 
 		let (mut winner, mut md) = (None, f32::MAX);
-		for x in (k.0-1)..(k.0+1) {
-			for y in (k.1-1)..(k.1+1) {
+		for x in (k.0-1)..=(k.0+1) {
+			for y in (k.1-1)..=(k.1+1) {
 				if !self.food.contains_key(&(x, y)) {
 					continue;
 				}
@@ -87,7 +87,7 @@ impl FoodWorld {
 		None
 	}
 
-	pub fn update(&mut self, d : f32) {
+	pub fn update(&mut self, _d : f32) {
 		self.food.retain(|_, v| v.len() != 0);
 	}
 	pub fn render(&self, rd : &RenderData) {
