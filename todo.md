@@ -1,5 +1,4 @@
 ## Necessary
-- player pheromones (BONUS: agents getting stuck is now a gameplay mechanic lmao)
 - home
 	- [x] static access
 	- [ ] depositing pellets
@@ -36,3 +35,4 @@
 	- [x] dropping
 	- [x] dissipation
 	- [x] following
+- player pheromones (BONUS: agents getting stuck is now a gameplay mechanic lmao)

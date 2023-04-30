@@ -27,15 +27,20 @@ impl Gameplay {
 	}
 	pub fn player_pos(&self) -> Vec2 {
 		match self.objs.get_obj(self.player_id) {
-			Gobj::Player(pos) => *pos,
+			Gobj::Player(_, _, pos, _, _) => *pos,
 			_ => panic!("player_id ({}) not pointing to a Player!", self.player_id)
 		}
 	}
 }
 impl Scene for Gameplay {
 	fn init(&mut self, _a : &Assets) {
-		use Gobj::*;
-		self.player_id = self.objs.create(Player(vec2(0., 0.)));
+		self.player_id = self.objs.create(
+			Gobj::new_player(
+				self.markers.clone(),
+				self.food.clone(),
+				&Vec2::ZERO
+				)
+			);
 	}
     fn update(&mut self, _q : &mut SignalQueue) {
 		let d = get_frame_time();

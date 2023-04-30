@@ -29,18 +29,16 @@ pub const HARD_BOUNDS : Vec2 = vec2(ANT_RAD*100., ANT_RAD*50.);
 
 #[derive(Debug)]
 pub enum Gobj {
-	Player(Vec2),
+	Player(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Option<Marker>, Vec2),
 	Ant(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2, AntState),
 	Scout(Rc<RefCell<MarkerWorld>>, Rc<RefCell<FoodWorld>>, Vec2, Vec2, f32, Vec2),
 }
 impl Gobj {
 	pub fn new_ant(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
-		//if rand::gen_range(0., 1.) < 0.1 {
-		//	Gobj::Scout(mw, fw, *pos, *pos, 0., *pos)
-		//}
-		//else {
-			Gobj::Ant(mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
-		//}
+		Gobj::Ant(mw, fw, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
+	}
+	pub fn new_player(mw : Rc<RefCell<MarkerWorld>>, fw : Rc<RefCell<FoodWorld>>, pos : &Vec2) -> Self {
+		Gobj::Player(mw, fw, *pos, None, *pos)
 	}
 }
 impl GameObject for Gobj {
@@ -48,7 +46,24 @@ impl GameObject for Gobj {
 		let d = get_frame_time();
 		use Gobj::*;
 		match self {
-			Player(pos) => {
+			Player(marker_world, food_world, pos, marker_type, last_marker_pos) => {
+				if pos.distance(*last_marker_pos) > ANT_MARKER_DIST {
+					match marker_type {
+						None => (),
+						Some(Marker::Home(..)) => marker_world.borrow_mut()
+							.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE)),
+						Some(Marker::Food(..)) => marker_world.borrow_mut()
+							.create_marker(Marker::Food(*pos, FOOD_MARKER_LIFE)),
+					}
+					*last_marker_pos = *pos;
+				}
+				if is_key_pressed(KeyCode::Tab) {
+					*marker_type = match marker_type {
+						None => Some(Marker::Home(*pos, 0.)),
+						Some(Marker::Home(..)) => Some(Marker::Food(*pos, 0.)),
+						Some(Marker::Food(..)) => None,
+					}
+				}
 				let iv = get_ivn();
 				*pos += iv*d*PLAYER_SPEED;
 				true
@@ -227,7 +242,14 @@ impl GameObject for Gobj {
 		use Gobj::*;
 		let co = rd.camera_offset();
 		match self {
-			Player(pos) => draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, RED),
+			Player(_, _, pos, marker_type, _) => {
+				let col = match marker_type {
+					None => GRAY,
+					Some(Marker::Home(..)) => BLUE,
+					Some(Marker::Food(..)) => GREEN,
+				};
+				draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, col);
+			},
 			Ant(_mw, _fw, pos, target, tcc, _lmp, state) => {
 				let pos = *pos - co;
 				let target = *target - co;
