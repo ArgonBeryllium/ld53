@@ -3,6 +3,7 @@ use macroquad::{prelude::{Vec2, RED, vec2, WHITE}, shapes::{draw_rectangle_lines
 
 use crate::{game_objects::RenderData, gobj::{FOOD_MARKER_LIFE, HOME_MARKER_LIFE, ANT_MARKER_DIST}};
 
+pub const MAX_HOME_MARKERS_PER_CELL : usize = 14;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Marker {
 	Home(Vec2, f32),
@@ -51,6 +52,17 @@ impl MarkerWorld {
 		let key = self.pos_to_key(&m.pos());
 		if !self.markers.contains_key(&key) {
 			self.markers.insert(key, Vec::new());
+		}
+		match m {
+			Marker::Home(..) =>
+				if self.markers.get(&key)
+					.unwrap()
+					.iter()
+					.filter(|m| match m { Marker::Home(..) => true, _ => false })
+					.count() > MAX_HOME_MARKERS_PER_CELL {
+						return;
+					}
+			_ => ()
 		}
 		self.markers
 			.get_mut(&key)

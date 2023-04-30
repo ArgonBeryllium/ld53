@@ -60,8 +60,12 @@ impl Scene for Gameplay {
 				self.objs.create(Gobj::new_ant(
 						self.markers.clone(),
 						self.food.clone(),
-						&mouse_pos_scaled_rd(&self.rd))
-					);
+						&random_ring_point(
+							&mouse_pos_scaled_rd(&self.rd),
+							ANT_RAD,
+							ANT_RAD*3.
+						)
+					));
 			}
 		}
 		if is_key_pressed(KeyCode::Key2) {
