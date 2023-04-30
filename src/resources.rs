@@ -12,6 +12,7 @@ pub const PARTICLE_SIZE : f32 = 6.0;
 pub const TEX_FUZZY_0: &[u8] = include_bytes!("../res/fuzzy-0.png");
 pub const TEX_FUZZY_1: &[u8] = include_bytes!("../res/fuzzy-1.png");
 pub const TEX_FUZZY_2: &[u8] = include_bytes!("../res/fuzzy-2.png");
+pub const TEX_TEST: &[u8] = include_bytes!("../res/test.png");
 
 pub fn load_font() -> Font {
 	load_ttf_font_from_bytes(FONT_FILE).expect("load font fun")
@@ -24,6 +25,7 @@ pub struct Assets {
 	pub tex_fuzzy_0 : Texture2D,
 	pub tex_fuzzy_1 : Texture2D,
 	pub tex_fuzzy_2 : Texture2D,
+	pub tex_test : Texture2D,
 }
 impl Assets {
 	pub async fn load() -> Self {
@@ -33,6 +35,7 @@ impl Assets {
 			tex_fuzzy_0: Texture2D::from_file_with_format(TEX_FUZZY_1, None),
 			tex_fuzzy_1: Texture2D::from_file_with_format(TEX_FUZZY_1, None),
 			tex_fuzzy_2: Texture2D::from_file_with_format(TEX_FUZZY_2, None),
+			tex_test: Texture2D::from_file_with_format(TEX_TEST, None),
 		}
 	}
 }

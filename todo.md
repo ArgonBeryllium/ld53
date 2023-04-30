@@ -10,7 +10,6 @@
 		- [ ] lose state, restart
 - map
 	- [ ] bounds
-	- [ ] teleporting offscreen stragglers
 	- [ ] geometry w/collisions
 	- [ ] mini view
 	- [ ] texture

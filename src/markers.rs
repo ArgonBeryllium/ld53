@@ -76,7 +76,7 @@ impl MarkerWorld {
 			),
 			Marker::Food(..) => Gobj::new_particles(
 				m.pos(),
-				4,
+				3,
 				FOOD_MARKER_LIFE,
 				MARKER_RENDER_RAD*0.5,
 				COL_MARKER_FOOD,

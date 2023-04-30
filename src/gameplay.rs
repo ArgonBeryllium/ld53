@@ -122,6 +122,24 @@ impl Scene for Gameplay {
 		let co = self.rd.camera_offset();
 
 		clear_background(COL_BG);
+		const TS : f32 = 40.;
+		let mut tp = self.player_pos();
+		tp.x %= TS;
+		tp.y %= TS;
+		let mut x = -tp.x - TS;
+		while x < W {
+			let mut y = -tp.y - TS;
+			while y < H {
+				draw_texture_ex(self.rd.assets.clone().unwrap().tex_test, x, y, WHITE,
+					DrawTextureParams {
+						dest_size: Some(vec2(TS, TS)),
+						..DrawTextureParams::default()
+					});
+				y += TS;
+			}
+			x += TS;
+		}
+
 		draw_circle(HOME_POS.x - co.x, HOME_POS.y - co.y, ANT_HOME_DEPOSIT_RANGE, DARKBLUE);
 		draw_rectangle(-HARD_BOUNDS.x - co.x, -HARD_BOUNDS.y - co.y,
 			HARD_BOUNDS.x*2., HARD_BOUNDS.y*2., Color::from_rgba(0,55,55,55));
