@@ -47,7 +47,7 @@ impl Scene for Gameplay {
 		self.world.borrow_mut().init(a);
 	}
     fn update(&mut self, _q : &mut SignalQueue) {
-		let d = get_frame_time();
+		let d = get_frame_time().min(0.2).max(0.001);
         self.objs.update();
 		self.world.borrow_mut().marker.update(d);
 		self.world.borrow_mut().food.update(d);
@@ -118,23 +118,24 @@ impl Scene for Gameplay {
 
     fn render(&mut self, _q : &mut SignalQueue) {
 		clear_background(COL_BG);
-		//const TS : f32 = 40.;
-		//let mut tp = self.player_pos();
-		//tp.x %= TS;
-		//tp.y %= TS;
-		//let mut x = -tp.x - TS;
-		//while x < W {
-		//	let mut y = -tp.y - TS;
-		//	while y < H {
-		//		draw_texture_ex(self.rd.assets.clone().unwrap().tex_test, x, y, WHITE,
-		//			DrawTextureParams {
-		//				dest_size: Some(vec2(TS, TS)),
-		//				..DrawTextureParams::default()
-		//			});
-		//		y += TS;
-		//	}
-		//	x += TS;
-		//}
+		const TS : f32 = 128.;
+		const TL : u8 = 8;
+		let mut tp = self.player_pos();
+		tp.x %= TS;
+		tp.y %= TS;
+		let mut x = -tp.x - TS;
+		while x < W {
+			let mut y = -tp.y - TS;
+			while y < H {
+				draw_texture_ex(self.rd.assets.clone().unwrap().tex_sand, x, y, Color::from_rgba(TL,TL,TL,255),
+					DrawTextureParams {
+						dest_size: Some(vec2(TS, TS)),
+						..DrawTextureParams::default()
+					});
+				y += TS;
+			}
+			x += TS;
+		}
 
 		let mapp = self.rd.cast_pos(&MAP_TOPLEFT);
 		draw_texture_ex(self.rd.assets.clone().unwrap().tex_map, mapp.x, mapp.y, WHITE,

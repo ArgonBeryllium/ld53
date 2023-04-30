@@ -39,7 +39,7 @@ impl World {
 				td.get_pixel(
 					((x as f32 + 0.5) * COLLISION_GRID_SIZE_TEXPIXELS) as u32,
 					((y as f32 + 0.5) * COLLISION_GRID_SIZE_TEXPIXELS) as u32
-				).r > 0.19);
+				).a > 0.29);
 			}
 		}
 	}

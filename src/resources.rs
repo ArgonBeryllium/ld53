@@ -15,6 +15,7 @@ pub const TEX_FUZZY_2: &[u8] = include_bytes!("../res/fuzzy-2.png");
 pub const TEX_TEST: &[u8] = include_bytes!("../res/test.png");
 pub const TEX_MAP: &[u8] = include_bytes!("../res/test_map.png");
 pub const TEX_VIG: &[u8] = include_bytes!("../res/vignette.png");
+pub const TEX_SAND: &[u8] = include_bytes!("../res/sand.png");
 
 pub fn load_font() -> Font {
 	load_ttf_font_from_bytes(FONT_FILE).expect("load font fun")
@@ -30,8 +31,14 @@ pub struct Assets {
 	pub tex_test : Texture2D,
 	pub tex_map : Texture2D,
 	pub tex_vig : Texture2D,
+	pub tex_sand : Texture2D,
 }
 impl Assets {
+	fn load_tex_pixelated(data : &[u8]) -> Texture2D {
+		let out = Texture2D::from_file_with_format(data, None);
+		out.set_filter(FilterMode::Nearest);
+		out
+	}
 	pub async fn load() -> Self {
 		Assets {
 			sound: load_sound_from_bytes(SOUND).await.expect("load sound"),
@@ -40,8 +47,9 @@ impl Assets {
 			tex_fuzzy_1: Texture2D::from_file_with_format(TEX_FUZZY_1, None),
 			tex_fuzzy_2: Texture2D::from_file_with_format(TEX_FUZZY_2, None),
 			tex_test: Texture2D::from_file_with_format(TEX_TEST, None),
-			tex_map: Texture2D::from_file_with_format(TEX_MAP, None),
+			tex_map: Self::load_tex_pixelated(TEX_MAP),
 			tex_vig: Texture2D::from_file_with_format(TEX_VIG, None),
+			tex_sand: Texture2D::from_file_with_format(TEX_SAND, None),
 		}
 	}
 }
