@@ -140,6 +140,8 @@ impl Scene for Gameplay {
 			x += TS;
 		}
 
+		// TODO remove; debug
+		self.rd.zoom = if is_key_down(KeyCode::LeftShift) { 0.4 } else { 1.0 };
 		draw_circle(HOME_POS.x - co.x, HOME_POS.y - co.y, ANT_HOME_DEPOSIT_RANGE, DARKBLUE);
 		draw_rectangle(-HARD_BOUNDS.x - co.x, -HARD_BOUNDS.y - co.y,
 			HARD_BOUNDS.x*2., HARD_BOUNDS.y*2., Color::from_rgba(0,55,55,55));

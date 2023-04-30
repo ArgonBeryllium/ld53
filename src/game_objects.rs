@@ -5,12 +5,14 @@ use crate::{config::{W, H}, prelude::{REAL_H, REAL_W, Assets}};
 
 pub struct RenderData {
 	pub camera_pos : Vec2,
+	pub zoom : f32,
 	pub assets : Option<Assets>,
 }
 impl RenderData {
 	pub fn new() -> Self {
 		RenderData {
 			camera_pos: Vec2::ZERO,
+			zoom: 1.0,
 			assets: None,
 		}
 	}
@@ -20,9 +22,15 @@ impl RenderData {
 	pub fn camera_offset(&self) -> Vec2 {
 		// TODO remove; debug
 		if is_key_down(KeyCode::LeftControl) {
-			return self.camera_pos - vec2(REAL_W as f32 /2., REAL_H as f32 /2.)
+			return self.camera_pos*self.zoom - vec2(REAL_W as f32 /2., REAL_H as f32 /2.)
 		}
-		self.camera_pos - vec2(W/2., H/2.)
+		self.camera_pos*self.zoom - vec2(W/2., H/2.)
+	}
+	pub fn cast_pos(&self, p : &Vec2) -> Vec2 {
+		*p*self.zoom - self.camera_offset()
+	}
+	pub fn scale_unit(&self, s : f32) -> f32 {
+		s*self.zoom
 	}
 }
 

@@ -12,6 +12,7 @@ use crate::ants::*;
 
 const PLAYER_SPEED : f32 = ANT_SPEED*3.;
 const PLAYER_RAD : f32 = 4.;
+const PLAYER_PICKUP_RANGE : f32 = PLAYER_RAD * 2.0;
 
 const ANT_SPEED : f32 = 15.0;
 pub const ANT_RAD : f32 = PLAYER_RAD * 0.8;
@@ -104,7 +105,7 @@ impl GameObject for Gobj {
 					.pos;
 				if closest_food_id.is_some()
 					&& carried_food.is_none()
-					&& get_closest_food_pos().distance(*pos) < ANT_FOOD_PICKUP_RANGE {
+					&& get_closest_food_pos().distance(*pos) < PLAYER_PICKUP_RANGE {
 					*carried_food = food_world
 						.borrow_mut().
 						take_food(closest_food_id.unwrap());
@@ -288,7 +289,6 @@ impl GameObject for Gobj {
 	}
 	fn render(&self, rd : &RenderData) {
 		use Gobj::*;
-		let co = rd.camera_offset();
 		match self {
 			Player(_, _, _, pos, marker_type, _, carried_food) => {
 				let col = match marker_type {
@@ -296,13 +296,14 @@ impl GameObject for Gobj {
 					Some(Marker::Home(..)) => COL_MARKER_HOME,
 					Some(Marker::Food(..)) => COL_MARKER_FOOD,
 				};
-				draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD, col);
+				let pos = rd.cast_pos(pos);
+				let s = rd.scale_unit(PLAYER_RAD);
+				draw_circle(pos.x, pos.y, s, col);
 				if carried_food.is_some() {
-					draw_circle(pos.x - co.x, pos.y - co.y, PLAYER_RAD*0.7, GREEN);
+					draw_circle(pos.x, pos.y, s*0.7, GREEN);
 				}
 			},
 			Ant(_ow, _mw, _fw, pos, _target, _tcc, _lmp, state) => {
-				let pos = *pos - co;
 				let col = match state {
 					AntState::Wander(..) => COL_MARKER_HOME,
 					AntState::Follow(..) => LIGHTGRAY,
@@ -310,14 +311,16 @@ impl GameObject for Gobj {
 					AntState::GoHome(..) => COL_MARKER_FOOD,
 				};
 
-				draw_circle(pos.x, pos.y, ANT_RAD, col);
+				let pos = rd.cast_pos(pos);
+				let s = rd.scale_unit(ANT_RAD);
+				draw_circle(pos.x, pos.y, s, col);
 				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
 			},
 			Particles(o_life, _life, col, _pos, _style, poss, _vels, lives) => {
 				for i in 0..poss.len() {
 					if lives[i] < 0.0 { continue; }
-					let dim = lives[i]*PARTICLE_SIZE / o_life;
-					let pos = poss[i] - rd.camera_offset() - dim*0.5;
+					let dim = rd.scale_unit(lives[i]*PARTICLE_SIZE / o_life);
+					let pos = rd.cast_pos(&poss[i]) - dim*0.5;
 					draw_texture_ex(
 						rd.assets.clone().unwrap().tex_fuzzy_0,
 						pos.x, pos.y, *col,
