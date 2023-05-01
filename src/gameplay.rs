@@ -51,7 +51,7 @@ impl Gameplay {
 					self.spawn_queue.clone(),
 					self.world.clone(),
 					&random_ring_point(
-						&mouse_pos_scaled_rd(&self.rd),
+						&HOME_POS,
 						ANT_RAD,
 						ANT_RAD*3.
 					)
@@ -164,6 +164,7 @@ impl Scene for Gameplay {
 	}
 	fn load(&mut self) {
 		self.load_timer = 1.;
+		self.objs.create(Gobj::Fader(1.0));
 	}
     fn update(&mut self, q : &mut SignalQueue) {
 		use GameState::*;
@@ -176,7 +177,9 @@ impl Scene for Gameplay {
 				self.world.borrow_mut().marker.update(d);
 				self.world.borrow_mut().food.update(d);
 
-				if self.world.borrow().hive.borrow().lost() {
+				// TODO remove debug condition
+				if self.world.borrow().hive.borrow().lost()
+					|| is_key_down(KeyCode::L) {
 					self.lose();
 				}
 
@@ -261,18 +264,23 @@ impl Scene for Gameplay {
 				self.rd.zoom = lerp(self.rd.zoom, 0.1, self.rd.d);
 			},
 			Over => {
-				clear_background(COL_BG);
+				clear_background(BLACK);
 				self.render_map_tex();
 				self.world.borrow().marker.render(&self.rd);
 				self.world.borrow().food.render(&self.rd);
 				self.objs.render(&self.rd);
 				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
 
-				self.rd.zoom = lerp(self.rd.zoom, 0.08, self.rd.d);
+				const VS : f32 = 2.5;
+				draw_texture_ex(self.rd.assets.clone().unwrap().tex_vig, W/2.-VS*W/2., H/2.-VS*W/2., RED,
+					DrawTextureParams{ dest_size: Some(vec2(W, W)*VS), ..DrawTextureParams::default() });
 
-				quick_text("GAME OVER", vec2(W/2.0, H/2.0), RED);
-				quick_text("[R] to restart", vec2(W/2.0, H/2.0+20.), RED);
+				self.rd.zoom = lerp(self.rd.zoom, 0.0, self.rd.d*0.4);
 			}
+		}
+		let f = self.objs.objects.iter().find(|(_, o)| match o { Gobj::Fader(_) => true, _ => false });
+		if f.is_some() {
+			f.unwrap().1.render(&self.rd);
 		}
 
 		// TODO remove; debug

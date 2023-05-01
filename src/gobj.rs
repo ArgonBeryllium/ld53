@@ -37,10 +37,11 @@ pub enum ParticleStyle {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Gobj {
-	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Option<Marker>, Vec2, Option<Food>),
+	Player(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Marker, Vec2, Option<Food>),
 	Ant(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Vec2, f32, Vec2, AntState),
 	Scout(Rc<RefCell<Vec<Gobj>>>, Rc<RefCell<World>>, Vec2, Vec2, f32, Vec2),
 	Particles(f32, f32, Color, Vec2, ParticleStyle, Vec<Vec2>, Vec<Vec2>, Vec<f32>),
+	Fader(f32),
 }
 impl Gobj {
 	pub fn new_ant(sq : Rc<RefCell<Vec<Gobj>>>, w : Rc<RefCell<World>>, pos : &Vec2) -> Self {
@@ -50,7 +51,7 @@ impl Gobj {
 		Gobj::Ant(sq, w, *pos, *pos, 0., *pos, AntState::Wander(0., 0., 0.))
 	}
 	pub fn new_player(sq : Rc<RefCell<Vec<Gobj>>>, w : Rc<RefCell<World>>, pos : &Vec2) -> Self {
-		Gobj::Player(sq, w, *pos, None, *pos, None)
+		Gobj::Player(sq, w, *pos, Marker::Home(*pos, 0.), *pos, None)
 	}
 	pub fn new_particles(pos : &Vec2, count : usize, life : f32, radius : f32, col : Color, style : ParticleStyle) -> Self {
 		let mut positions = Vec::new();
@@ -107,19 +108,17 @@ impl GameObject for Gobj {
 			Player(spawn_queue, world, pos, marker_type, last_marker_pos, carried_food) => {
 				if pos.distance(*last_marker_pos) > ANT_MARKER_DIST {
 					match marker_type {
-						None => (),
-						Some(Marker::Home(..)) => world.borrow_mut().marker
+						Marker::Home(..) => world.borrow_mut().marker
 							.create_marker(Marker::Home(*pos, HOME_MARKER_LIFE), spawn_queue.clone()),
-						Some(Marker::Food(..)) => world.borrow_mut().marker
+						Marker::Food(..) => world.borrow_mut().marker
 							.create_marker(Marker::Food(*pos, FOOD_MARKER_LIFE), spawn_queue.clone()),
 					}
 					*last_marker_pos = *pos;
 				}
-				if is_key_pressed(KeyCode::Tab) {
+				if is_key_pressed(KeyCode::Space) {
 					*marker_type = match marker_type {
-						None => Some(Marker::Home(*pos, 0.)),
-						Some(Marker::Home(..)) => Some(Marker::Food(*pos, 0.)),
-						Some(Marker::Food(..)) => None,
+						Marker::Home(..) => Marker::Food(*pos, 0.),
+						Marker::Food(..) => Marker::Home(*pos, 0.),
 					}
 				}
 				let iv = get_ivn();
@@ -343,6 +342,10 @@ impl GameObject for Gobj {
 				*life -= d;
 				*life > 0.0
 			},
+			Fader(left) => {
+				*left -= d;
+				*left > 0.
+			},
 		}
 	}
 	fn render(&self, rd : &RenderData) {
@@ -350,9 +353,8 @@ impl GameObject for Gobj {
 		match self {
 			Player(_, _, pos, marker_type, _, carried_food) => {
 				let col = match marker_type {
-					None => GRAY,
-					Some(Marker::Home(..)) => COL_MARKER_HOME,
-					Some(Marker::Food(..)) => COL_MARKER_FOOD,
+					Marker::Home(..) => COL_MARKER_HOME,
+					Marker::Food(..) => COL_MARKER_FOOD,
 				};
 				let pos_ = rd.cast_pos(pos);
 				let s = rd.scale_unit(PLAYER_RAD);
@@ -396,6 +398,10 @@ impl GameObject for Gobj {
 						});
 				}
 			}
+			Fader(left) => {
+				let a = (left*255.).min(255.).max(0.) as u8;
+				draw_rectangle(0., 0., W, H, Color::from_rgba(0,0,0,a));
+			},
 		}
 	}
 }

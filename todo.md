@@ -1,6 +1,5 @@
 # no time to add any features, time to polish this turd
 ## Necessary
-- [ ] lose state
 - dangers
 	- [ ] wandering
 	- [ ] eating ants
@@ -10,8 +9,6 @@
 - ant anim
 
 ## Nice to have
-- improve player controls
-- faders
 - replay
 - sound
 	- [ ] danger cues
@@ -20,6 +17,8 @@
 	- [ ] ambient droning
 
 ## DONE
+- faders
+- improve player controls
 - markers
 	- [x] static access
 	- [x] dropping
@@ -40,3 +39,4 @@
 - periodic food spawning
 
 - pheromone particles
+- [x] lose state
