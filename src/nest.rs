@@ -125,8 +125,6 @@ impl Scene for Nest {
 		if f.is_some() {
 			f.unwrap().1.render(&self.rd);
 		}
-		// TODO remove; debug
-		if is_key_down(KeyCode::C) { self.render_debug_map_col() }
     }
 
     fn unload(&mut self) {}

@@ -22,6 +22,9 @@ pub const TEX_SAND: &[u8] = include_bytes!("../res/sand.png");
 pub const TEX_NEST: &[u8] = include_bytes!("../res/nest.png");
 pub const TEX_NESTC: &[u8] = include_bytes!("../res/nest_col.png");
 
+pub const TEX_ANT3: &[u8] = include_bytes!("../res/ant3.png");
+pub const TEX_HOME: &[u8] = include_bytes!("../res/home.png");
+
 pub const TEX_SUGARS: &[&[u8]] = &[
 	include_bytes!("../res/sugar_1.png"),
 	include_bytes!("../res/sugar_2.png"),
@@ -55,6 +58,8 @@ pub struct Assets {
 	pub tex_nest : Texture2D,
 	pub tex_nest_col : Texture2D,
 	pub tex_hive_food : Vec<Texture2D>,
+	pub tex_ant : Texture2D,
+	pub tex_home : Texture2D,
 }
 impl Assets {
 	fn load_tex_pixelated(data : &[u8]) -> Texture2D {
@@ -82,9 +87,11 @@ impl Assets {
 			tex_vig: Texture2D::from_file_with_format(TEX_VIG, None),
 			tex_sand: Texture2D::from_file_with_format(TEX_SAND, None),
 			tex_sugars,
-			tex_nest: Texture2D::from_file_with_format(TEX_NEST, None),
+			tex_nest: Self::load_tex_pixelated(TEX_NEST),
 			tex_nest_col: Self::load_tex_pixelated(TEX_NESTC),
 			tex_hive_food,
+			tex_ant: Self::load_tex_pixelated(TEX_ANT3),
+			tex_home: Self::load_tex_pixelated(TEX_HOME),
 		}
 	}
 }

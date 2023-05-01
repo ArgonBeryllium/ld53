@@ -22,10 +22,6 @@ impl RenderData {
 		self.assets = Some(a.clone());
 	}
 	pub fn camera_offset(&self) -> Vec2 {
-		// TODO remove; debug
-		if is_key_down(KeyCode::LeftControl) {
-			return self.camera_pos*self.zoom - vec2(REAL_W as f32 /2., REAL_H as f32 /2.)
-		}
 		self.camera_pos*self.zoom - vec2(W/2., H/2.)
 	}
 	pub fn cast_pos(&self, p : &Vec2) -> Vec2 {

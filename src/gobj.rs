@@ -100,6 +100,16 @@ impl Gobj {
 		}
 	}
 }
+fn draw_ant(rd : &RenderData, pos : &Vec2, rad : f32, col : &Color, angle : &Vec2) {
+	let flip_x = ((pos.x/ANT_RAD).floor() + (pos.y/ANT_RAD).floor()) as i32 %2 == 0;
+	let rotation = angle.y.atan2(angle.x) + PI/2.;
+	draw_texture_ex(rd.assets.clone().unwrap().tex_ant, pos.x-rad, pos.y-rad, *col,
+		DrawTextureParams {
+			dest_size: Some(Vec2::ONE*rad*2.),
+			rotation,
+			flip_x,
+			..DrawTextureParams::default() });
+}
 impl GameObject for Gobj {
 	fn update(&mut self) -> bool {
 		let d = get_frame_time();
@@ -356,33 +366,40 @@ impl GameObject for Gobj {
 					Marker::Home(..) => COL_MARKER_HOME,
 					Marker::Food(..) => COL_MARKER_FOOD,
 				};
-				let pos_ = rd.cast_pos(pos);
+				let pos = rd.cast_pos(pos);
 				let s = rd.scale_unit(PLAYER_RAD);
-				draw_circle(pos_.x, pos_.y, s, col);
+				draw_ant(rd, &pos, s, &col, &get_ivn());
 				if carried_food.is_some() {
 					carried_food.clone().unwrap().render(rd);
 				}
 			},
-			Ant(_sq, _w, pos, _target, _tcc, _lmp, state) => {
+			Ant(_sq, _w, pos, target, _tcc, _lmp, state) => {
+				let mut carried_food = None;
 				let col = match state {
 					AntState::Wander(..) => COL_MARKER_HOME,
 					AntState::Follow(..) => LIGHTGRAY,
-					AntState::GetFood(..) => DARKGREEN,
-					AntState::GoHome(..) => COL_MARKER_FOOD,
+					AntState::GetFood(..) => LIGHTGRAY,
+					AntState::GoHome(food, ..) => {
+						carried_food = Some(food.clone());
+						carried_food.as_mut().unwrap().pos = *pos;
+						 COL_MARKER_FOOD
+					},
 				};
 
+				let heading = (*target-*pos).normalize();
 				let pos = rd.cast_pos(pos);
 				let s = rd.scale_unit(ANT_RAD);
-				draw_circle(pos.x, pos.y, s, col);
-				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
+				draw_ant(rd, &pos, s, &col, &heading);
+				if carried_food.is_some() {
+					carried_food.clone().unwrap().render(rd);
+				}
 			},
-			Scout(_ow, _mw, pos, _target, _tcc, _lmp) => {
+			Scout(_ow, _mw, pos, target, _tcc, _lmp) => {
+				let heading = (*target-*pos).normalize();
 				let col = COL_MARKER_HOME;
 				let pos = rd.cast_pos(pos);
-				let s = rd.scale_unit(ANT_RAD);
-				draw_circle(pos.x, pos.y, s, col);
-				quick_text("S", pos, BLACK);
-				//draw_line(pos.x, pos.y, target.x, target.y, 1.0+*tcc, MAGENTA);
+				let s = rd.scale_unit(ANT_RAD*0.8);
+				draw_ant(rd, &pos, s, &col, &heading);
 			},
 			Particles(o_life, _life, col, _pos, _style, poss, _vels, lives) => {
 				for i in 0..poss.len() {

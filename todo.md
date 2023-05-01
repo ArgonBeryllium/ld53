@@ -5,9 +5,6 @@
 	- [ ] eating ants
 		- [ ] lose state, restart
 
-- ant texture
-- ant anim
-
 ## Nice to have
 - replay
 - sound
@@ -17,6 +14,8 @@
 	- [ ] ambient droning
 
 ## DONE
+- ant texture
+- ant anim
 - faders
 - improve player controls
 - markers

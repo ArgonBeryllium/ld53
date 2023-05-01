@@ -133,6 +133,13 @@ impl Gameplay {
 				dest_size: Some(MAP_DIMS*self.rd.scale_unit(1.)),
 				..DrawTextureParams::default()
 			});
+		let hcp = self.rd.cast_pos(&HOME_POS);
+		let hr = self.rd.scale_unit(ANT_HOME_DEPOSIT_RANGE);
+		draw_texture_ex(self.rd.assets.clone().unwrap().tex_home, hcp.x - hr, hcp.y - hr, WHITE,
+			DrawTextureParams {
+				dest_size: Some(Vec2::ONE*hr*2.),
+				..DrawTextureParams::default()
+			});
 	}
 	fn render_map_vignette(&self, tl : &Vec2, map_dims : &Vec2, scale_factor : f32) {
 		let map_vignette_dims = *map_dims*self.rd.scale_unit(scale_factor);
@@ -177,9 +184,7 @@ impl Scene for Gameplay {
 				self.world.borrow_mut().marker.update(d);
 				self.world.borrow_mut().food.update(d);
 
-				// TODO remove debug condition
-				if self.world.borrow().hive.borrow().lost()
-					|| is_key_down(KeyCode::L) {
+				if self.world.borrow().hive.borrow().lost() {
 					self.lose();
 				}
 
@@ -235,9 +240,6 @@ impl Scene for Gameplay {
 				}
 			}
 		}
-
-		// TODO remove; debug
-		self.debug_update();
     }
 
     fn render(&mut self, _q : &mut SignalQueue) {
@@ -260,7 +262,7 @@ impl Scene for Gameplay {
 				self.world.borrow().marker.render(&self.rd);
 				self.render_map_vignette(&MAP_TOPLEFT, &MAP_DIMS, 1.8);
 
-				self.debug_render();
+				//self.debug_render();
 				self.rd.zoom = lerp(self.rd.zoom, 0.1, self.rd.d);
 			},
 			Over => {
@@ -283,9 +285,7 @@ impl Scene for Gameplay {
 			f.unwrap().1.render(&self.rd);
 		}
 
-		// TODO remove; debug
-		self.debug_render();
-		quick_text(&format!("objs: {}", self.objs.objects.len()), vec2(mouse_position().0, mouse_position().1), WHITE);
+		//self.debug_render();
     }
 }
 #[allow(dead_code)]
