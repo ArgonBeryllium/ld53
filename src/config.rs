@@ -12,7 +12,7 @@ pub fn window_conf() -> Conf {
 	Conf {
 		window_width: REAL_W,
 		window_height: REAL_H,
-		window_title: "".to_owned(),
+		window_title: "HIVE".to_owned(),
 		fullscreen: false,
 		window_resizable: false,
 		..Conf::default()

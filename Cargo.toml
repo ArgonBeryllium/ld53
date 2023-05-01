@@ -1,6 +1,6 @@
 [package]
-name = "panic-engine"
-description = "An incredibly rushed and basic environment made within a day in a mad dash to prepare for LD 53"
+name = "hive-ld53"
+description = "An unsuccesful LD 53 attempt"
 version = "0.1.0"
 edition = "2021"
 
